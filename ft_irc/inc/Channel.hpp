@@ -1,29 +1,22 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   Client.hpp                                         :+:      :+:    :+:   */
+/*   Channel.hpp                                        :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: rhvidste <rhvidste@student.hive.email.com  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/12/18 10:56:52 by rhvidste          #+#    #+#             */
-/*   Updated: 2025/12/18 11:05:57 by rhvidste         ###   ########.fr       */
+/*   Created: 2025/12/18 13:05:44 by rhvidste          #+#    #+#             */
+/*   Updated: 2025/12/18 13:36:56 by rhvidste         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include<iostream>
-#include<set>
+#include "Client.hpp"
 
-class Client {
-public:
+class Channel
+{
+  std::string         name;
+  std::set<Client*>   members;
+  std::set<Client*>   operators;
 
-  int           fd;
-  std::string   nick;
-  std::string   user;
-  bool          registered;
-
-  std::set<std::string>   channels;
-  std::string             inputBuffer;
-
-  void send(const std::string &msg);
-
-};
+  void  broadcast(const std::string &msg, Client* except = NULL);
+}; 

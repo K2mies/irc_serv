@@ -1,29 +1,21 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   Client.hpp                                         :+:      :+:    :+:   */
+/*   Command.hpp                                        :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: rhvidste <rhvidste@student.hive.email.com  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/12/18 10:56:52 by rhvidste          #+#    #+#             */
-/*   Updated: 2025/12/18 11:05:57 by rhvidste         ###   ########.fr       */
+/*   Created: 2025/12/18 13:24:15 by rhvidste          #+#    #+#             */
+/*   Updated: 2025/12/18 13:36:53 by rhvidste         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include<iostream>
-#include<set>
+#include <iostream>
+#include <vector>
 
-class Client {
+class Command {
 public:
-
-  int           fd;
-  std::string   nick;
-  std::string   user;
-  bool          registered;
-
-  std::set<std::string>   channels;
-  std::string             inputBuffer;
-
-  void send(const std::string &msg);
-
+  std::string               prefix;
+  std::string               command;
+  std::vector<std::string>  params;
 };
