@@ -78,7 +78,9 @@ void run_simple_server() {
             << new_socket << std::endl;
 
   // --- 4. COMMUNICATION (Simple send/recv) ---
-  const char *hello = "Hello, Client! Connection accepted.";
+  //const char *hello = "Hello, Client! Connection accepted.";
+  //const char *hello = ":server NOTICE * :Hello! I am your C++ server.\r\n";
+  const char *hello = ":server NOTICE * :Hello! I am your C++ server, please kill me!.\r\n";
   // Send a simple message to the newly connected client
   send(new_socket, hello, strlen(hello), 0);
 
@@ -86,15 +88,34 @@ void run_simple_server() {
             << "STATUS: Sent 'Hello' message to client." 
             << std::endl;
 
-  // --- 5. CLEANUP ---
-  std::cout 
-            << "STATUS: Closing sockets." 
-            << std::endl;
+  // --- 5. MAIN LOOP ---
+  char buffer[1024];
+  while (true){
+    int bytes_recieved = recv(new_socket, buffer, sizeof(buffer) - 1, 0);
+    if (bytes_recieved <= 0){
+      std::cout << "Client disconnected." << std::endl;
+      break;
+    }
+    buffer[bytes_recieved] = '\0';
+    std::cout << "Client sent: " << buffer << std::endl;
 
-  // Close the new socket created for the client
+    // Optional: Echo a message back to Irssi for every command it sends
+    const char *ack = ":my_server NOTICE * :I recieved your command!\r\n";
+    send(new_socket, ack, strlen(ack), 0);
+  }
+
   close(new_socket);
-  // Close the original listening socket
   close(server_fd);
+
+  // --- 5. CLEANUP ---
+ // std::cout 
+ //           << "STATUS: Closing sockets." 
+ //           << std::endl;
+
+ // // Close the new socket created for the client
+ // close(new_socket);
+ // // Close the original listening socket
+ // close(server_fd);
 }
 
 int main() {
