@@ -10,7 +10,7 @@
 #                                                                              #
 # **************************************************************************** #
 
-NAME		:=	ft_irc_serve
+NAME		:=	ircserv
 CC			:=	c++
 FLAGS		:=	-Wall -Werror -Wextra -std=c++20
 DEBUG_FLAGS	:=	-g
@@ -24,11 +24,11 @@ HEADERS		:=	$(INC_DIR)/Server.hpp				\
 SRC_DIR		:=	./src
 OBJ_DIR		:=	./obj
 # ---------------------------------------------------------------------------- #
-SRC			:=	$(SRC_DIR)/main.cpp						\
-						$(SRC_DIR)/Server.cpp					\
-						$(SRC_DIR)/Channel.cpp				\
-						$(SRC_DIR)/Clientl.cpp				\
-						$(SRC_DIR)/Command.cpp				\
+SRC				:=	$(SRC_DIR)/main.cpp					\
+							$(SRC_DIR)/Server.cpp				\
+							$(SRC_DIR)/Channel.cpp			\
+							$(SRC_DIR)/Clientl.cpp			\
+							$(SRC_DIR)/Command.cpp
 
 # ---------------------------------------------------------------------------- #
 OBJ			:=	$(patsubst $(SRC_DIR)/%.cpp, $(OBJ_DIR)/%.o, $(SRC))

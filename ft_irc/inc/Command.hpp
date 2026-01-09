@@ -10,12 +10,14 @@
 /*                                                                            */
 /* ************************************************************************** */
 
+#pragma once
+
 #include <iostream>
+#include <string>
 #include <vector>
 
-class Command {
-public:
-  std::string               prefix;
-  std::string               command;
-  std::vector<std::string>  params;
+struct Command {
+  std::string               prefix;   // rarely used for client->server
+  std::string               name;     // "NICK", "JOIN", ...
+  std::vector<std::string>  params;   // includes trailing as one param if parsed that way
 };

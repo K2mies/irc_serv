@@ -10,20 +10,56 @@
 /*                                                                            */
 /* ************************************************************************** */
 
+#pragma once
+
 #include<iostream>
-#include<set>
+#include<unordered_set>
 
 class Client {
 public:
 
-  int           fd;
-  std::string   nick;
-  std::string   user;
-  bool          registered;
+  explicit  Client(int fd);
 
-  std::set<std::string>   channels;
-  std::string             inputBuffer;
+  int       fd()    const;
 
-  void send(const std::string &msg);
+  // ----------------------------------------------------- identity / registration
+  const std::string&  nick() const;
+  const std::string&  user() const;
+  bool  isRegistered()       const;
 
+  // ---------------------------------------------------------------- registration
+  void setNick( const std::string& n );
+  void setUser( const std::string& u );
+  void setPassOk( bool ok );
+  void tryCompleteRegistration(); // sets registered when PASS(if needed)+NICK+USER are ready
+
+  // ----------------------------------------------------------- inbound buffering
+  std::string& inbuf();               // append recv() bytes here
+  bool popLine( std::string &line );  // extract one \r\n line
+
+  // ---------------------------------------------------------- outbound buffering
+  void queue( const std::string& msg ); // always appends \r\n in one place (recommended)
+  bool hasPendingOutput() const;
+  std::string &outbuf();
+
+  // ------------------------------------------------------ membership bookkeeping
+  void joinChannel(   const std::string& chan );
+  void leaveChannel(  const std::string& chan );
+  const std::unordered_set<std::string>& channels() const;
+
+private:
+  int           _fd;
+
+  std::string   _nick;
+  std::string   _user;
+
+  bool          _passOk     = false;
+  bool          _hasNick    = false;
+  bool          _hasUser    = false;
+  bool          _registered = false;
+
+  std::unordered_map<std::string> _channels;
+
+  std::string   _in;
+  std::string   _out;
 };
