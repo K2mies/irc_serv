@@ -58,7 +58,7 @@ private:
   bool          _hasUser    = false;
   bool          _registered = false;
 
-  std::unordered_map<std::string> _channels;
+  std::unordered_set<std::string> _channels;
 
   std::string   _in;
   std::string   _out;
