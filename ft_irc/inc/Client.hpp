@@ -12,8 +12,8 @@
 
 #pragma once
 
-#include<string>
-#include<unordered_set>
+#include  <string>
+#include  <unordered_set>
 
 // -------------------------------------------------------------------- type defs
 typedef std::unordered_set<std::string> ChannelSet;
