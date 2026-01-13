@@ -41,17 +41,18 @@ void Server::run(){
 
   sockaddr_in     addr;
   std::memset (&addr, 0, sizeof( addr  ) );
+
   addr.sin_family       = AF_INET;
   addr.sin_addr.s_addr  = INADDR_ANY;
   addr.sin_port         = htons(_port );
 
-  if( bind( _listen_socket_fd, (  sockaddr* )&addr, sizeof( addr  ) ) < 0){
-      perror( "bind"  );
+  if( bind    ( _listen_socket_fd, (  sockaddr* )&addr, sizeof( addr  ) ) < 0){
+      perror  ( "bind"  );
       return ;
   }
 
-  if( listen( _listen_socket_fd, SOMAXCONN  ) < 0 ){
-      perror( "listen"  );
+  if( listen  ( _listen_socket_fd, SOMAXCONN  ) < 0 ){
+      perror  ( "listen"  );
       return ;
   }
 
@@ -64,11 +65,11 @@ void Server::run(){
 
   // ------------------------------------------------------------------- poll loop
   std::vector<pollfd> poll_fds;
-  poll_fds.push_back( pollfd{  _listen_socket_fd, POLLIN, 0});
+  poll_fds.push_back  ( pollfd{  _listen_socket_fd, POLLIN, 0});
 
-  while (true){
-    if (  poll(  poll_fds.data(), poll_fds.size(), -1  ) < 0 ){
-          perror( "poll"  );
+  while ( true  ) {
+    if  ( poll        (  poll_fds.data(), poll_fds.size(), -1  ) < 0 ){
+          perror      ( "poll"  );
           break ;
     }
     // --------------------------------------------------------------- listen socket
