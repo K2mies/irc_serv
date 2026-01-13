@@ -43,6 +43,9 @@ void  Client::setUser(  const std::string& user ){
 
 void  Client::setPassOk(  bool ok ){  _passOk = ok; }
 
+/*
+ * @brief validates and confirms registrtion
+ */
 void  Client::tryCompleteRegistration(){
   if( _registered ){
     std::cout
@@ -60,9 +63,10 @@ std::string& Client::inbuf(){ return _in; }
 
 /* @brief parse the line for /r/n
  * 1: Look inside _in
- * 2: If it contains a full IRC line ending in \r\n into line
+ * 2: If it contains a full IRC line ending in \r\n placee into line
  * 3: Remove that line (and the CRLF) from _in
  * 4: Return true if a line was popped, otherwise false
+ * @param line  reference to a line variable
  */
 bool Client::popLine( std::string& line ) {
 
@@ -74,11 +78,14 @@ bool Client::popLine( std::string& line ) {
 
   line =  _in.substr(0, pos);
           _in.erase (0, pos + 2); // remove line + "\r\n"
+  
   return (  true  );
 }
 
 /*
  * @brief more forgiving version of popLine that includes /n
+ * preferable used on local jesting
+ * @param line  referene to a line variable
  */
 //bool  Client::popLine(  std::string &line ){
 //
@@ -110,18 +117,27 @@ bool Client::popLine( std::string& line ) {
 // ---------------------------------------------------------- outbound buffering
 
 /*
- *@brief appends "\r\n" to the end of message as long as it is not already there (safer version)
+ * @brief appends "\r\n" to the end of message as long as it is not already there (safer version)
+ * @param msg   const string message variable
  */
 void Client::queue( const std::string& msg  ){
   _out += msg;
 
-  if (msg.size() < 2 || msg.substr(msg.size() - 2) != "\r\n"){
-    _out += "\r\n";
+  if (msg.size() < 2 || 
+      msg.substr(msg.size() - 2) != "\r\n"){
+
+      _out += "\r\n";
   }
 }
 
+/*
+ * @brief checks wether output (_out) is or is not empty
+ */
 bool  Client::hasPendingOutput() const{ return !_out.empty();  }
 
+/*
+ * @brief getter for the _out bugger
+ */
 std::string& Client::outbuf(){  return _out; }
 
 
