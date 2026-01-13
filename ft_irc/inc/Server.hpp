@@ -17,7 +17,11 @@
 #include <iostream>
 #include <unordered_map>
 #include <vector>
+#include <cstdint>
+#include <string>
 
+
+// --------------------------------------------------------------------- typedef
 typedef std::unordered_map<int, Client*>             ClientsMapFd;
 typedef std::unordered_map<std::string, Client*>     ClientsMapNick;
 typedef std::unordered_map<std::string, Channel*>    ChannelMap;
@@ -29,31 +33,38 @@ private:
   std::string       _password;
 
   int               _listen_socket_fd;
+
   ClientsMapFd      _clients_by_fd;
   ClientsMapNick    _clients_by_nick;
   ChannelMap        _channels;
 
 private:
   // ------------------------------------------------------------ command handlers
-  void  cmdPASS(    Client& c, const Command& cmd );
-  void  cmdNICK(    Client& c, const Command& cmd );
-  void  cmdUSER(    Client& c, const Command& cmd );
-  void  cmdJOIN(    Client& c, const Command& cmd );
-  void  cmdQUIT(    Client& c, const Command& cmd );
-  void  cmdPRIVMSG( Client& c, const Command& cmd );
+  void  cmdPASS     ( Client& c, const Command& cmd );
+  void  cmdNICK     ( Client& c, const Command& cmd );
+  void  cmdUSER     ( Client& c, const Command& cmd );
+  void  cmdJOIN     ( Client& c, const Command& cmd );
+  void  cmdQUIT     ( Client& c, const Command& cmd );
+  void  cmdPRIVMSG  ( Client& c, const Command& cmd );
 
 public:
+
+  // ------------------------------------------------------------------------ init
   Server(int port, const std::string& password);
 
-  Client  *getClientByFd(       int fd );
-  Client  *getClientByNick(     const std::string &nick );
-  Channel *getChannel(          const std::string &name );
+  void run();
 
-  Channel& getOrCreateChannel(  const std::string& name );
+  // --------------------------------------------------------------------- getters
+  Client  *getClientByFd      ( int fd );
+  Client  *getClientByNick    ( const std::string &nick );
+  Channel *getChannel         ( const std::string &name );
 
-  void    handleCommand(        Client &client, const Command &cmd );
+  Channel& getOrCreateChannel ( const std::string& name );
+
+  // ------------------------------------------------------------- command handler
+  void    handleCommand       ( Client &client, const Command &cmd );
 
   // ------------------------------------------------------------- routing helpers
-  void  sendNumeric(  Client& c, int code, const std::string& text );
-  void  sendError(    Client& c, int code, const std::string& text );
+  void  sendNumeric (  Client& c, int code, const std::string& text );
+  void  sendError   (  Client& c, int code, const std::string& text );
 };

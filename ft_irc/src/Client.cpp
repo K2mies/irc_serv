@@ -59,6 +59,9 @@ void  Client::tryCompleteRegistration(){
 }
 
 // ----------------------------------------------------------- inbound buffering
+/*
+ * @brief getter for the _in buffer
+ */
 std::string& Client::inbuf(){ return _in; }
 
 /* @brief parse the line for /r/n
@@ -136,7 +139,7 @@ void Client::queue( const std::string& msg  ){
 bool  Client::hasPendingOutput() const{ return !_out.empty();  }
 
 /*
- * @brief getter for the _out bugger
+ * @brief getter for the _out buffer
  */
 std::string& Client::outbuf(){  return _out; }
 
