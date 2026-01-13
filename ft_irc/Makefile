@@ -16,17 +16,19 @@ FLAGS			:=	-Wall -Werror -Wextra -std=c++20
 DEBUG_FLAGS	:=	-g
 # ---------------------------------------------------------------------------- #
 INC_DIR		:=	./inc
-HEADERS		:=	$(INC_DIR)/Client.hpp
-							#$(INC_DIR)/Server.hpp				\
+HEADERS		:=	$(INC_DIR)/Client.hpp				\
+							$(INC_DIR)/Server.hpp
+							#$(INC_DIR)/Server.hpp			\
 							#$(INC_DIR)/Channel.hpp			\
-							#$(INC_DIR)/Client.hpp				\
+							#$(INC_DIR)/Client.hpp			\
 							#$(INC_DIR)/Command.hpp
 # ---------------------------------------------------------------------------- #
 SRC_DIR		:=	./src
 OBJ_DIR		:=	./obj
 # ---------------------------------------------------------------------------- #
 SRC				:=	$(SRC_DIR)/main.cpp					\
-							$(SRC_DIR)/Client.cpp
+							$(SRC_DIR)/Client.cpp				\
+							$(SRC_DIR)/Server.cpp
 							#$(SRC_DIR)/main.cpp				\
 							#$(SRC_DIR)/Server.cpp			\
 							#$(SRC_DIR)/Channel.cpp			\
