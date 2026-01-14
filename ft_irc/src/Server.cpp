@@ -221,7 +221,9 @@ void Server::run(){
             //Disconnect handling
             //a.  n == 0 → client closed connection
             //b.  n < 0 → error
-            //1.  But because you’re non-blocking, n < 0 can be “try again later” (EAGAIN). So you’ll refine this later.
+            //1.  But because you’re non-blocking, n < 0 
+            //    can be “try again later” (EAGAIN). 
+            //    So you’ll refine this later.
 
             if  ( n <= 0  ) {
   
@@ -289,10 +291,10 @@ void Server::run(){
           //3.  If you always watch POLLOUT, you can cause the event loop to wake constantly.
 
           if  ( client->hasPendingOutput()  ) {
-            poll_fd.events = POLLIN | POLLOUT;
-          } else  {
-            poll_fd.events = POLLIN;
-          }
+                poll_fd.events = POLLIN | POLLOUT;
+              } else  {
+                poll_fd.events = POLLIN;
+              }
     }
   }
 }
