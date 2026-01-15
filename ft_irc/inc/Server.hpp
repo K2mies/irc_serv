@@ -15,6 +15,7 @@
 #include "Client.hpp"
 #include "Command.hpp"
 #include <iostream>
+#include <poll.h>
 #include <unordered_map>
 #include <vector>
 #include <cstdint>
@@ -46,6 +47,9 @@ private:
   void  cmdJOIN     ( Client& c, const Command& cmd );
   void  cmdQUIT     ( Client& c, const Command& cmd );
   void  cmdPRIVMSG  ( Client& c, const Command& cmd );
+
+  // ------------------------------------------------------------ connection helpers
+  void  disconnectClient(int fd, std::vector<pollfd>& poll_fds, size_t& i);
 
 public:
 

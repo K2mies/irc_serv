@@ -19,7 +19,52 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <cstring>
+#include <cerrno>
 #include <iostream>
+#include <cerrno>
+
+// ------------------------------------------------------------ command handlers
+
+void Server::cmdQUIT  ( Client& c, const Command& cmd ){
+  (void)cmd;
+  // Optionally queue something back (usually not necessary)
+  // c.queue("ERROR :Closing Link"); // optional
+
+  // Mark client for disconnection.
+  // We cannot safely erase from poll_fds inside cmdQUIT without having access to poll_fds.
+  // So we use a simple approach: close the fd here; the loop will notice and remove it.
+  close(c.fd());
+}
+
+// ------------------------------------------------------------ connection helpers
+void  Server::disconnectClient(int fd, std::vector<pollfd>& poll_fds, size_t& i){
+  ClientsMapFd::iterator it = _clients_by_fd.find(fd);
+  if (it == _clients_by_fd.end()){
+    // fd not found; still remove poll entry if you want, but usually shouldn't happen
+    poll_fds.erase(poll_fds.begin() + i );
+    --i;
+    return;
+  }
+
+  Client* client = it->second;
+
+  // remove nick mapping if present
+  if (!client->nick().empty()){
+    ClientsMapNick::iterator nit = _clients_by_nick.find(client->nick());
+    if (nit != _clients_by_nick.end() && nit->second == client)
+      _clients_by_nick.erase(nit);
+  }
+
+  // (Later) remove from channels, broadcast QUIT, etc.
+
+  close(fd);
+  delete client;
+  _clients_by_fd.erase(it);
+
+  //remove from poll list
+  poll_fds.erase(poll_fds.begin() + i);
+  --i;
+}
 
 // ------------------------------------------------------------------------ init
 Server::Server(int port, const std::string& password)
@@ -123,8 +168,8 @@ void Server::run(){
   //Create a list of fds we want to monitor
   //pollfd has three important fields:
   //
-  //1.  fd = which file descriptor
-  //2.  events = what we’re interested in
+  //1.  fd      = which file descriptor
+  //2.  events  = what we’re interested in
   //3.  revents = what actually happened (filled by poll())
 
   //POLLIN
@@ -138,8 +183,8 @@ void Server::run(){
 
   //pollfd is a struct which has the interested
   //
-  //1.  fd = which socket to watch
-  //2.  events = what you care about
+  //1.  fd      = which socket to watch
+  //2.  events  = what you care about
   //3.  revents = what happened (filled by poll)
   //4.  You put the listening socket at index 0, watching POLLIN.
 
@@ -206,9 +251,29 @@ void Server::run(){
     //                    b.  you lookup the corresponding Client*
 
     for ( size_t i = 1; i < poll_fds.size(); i++) {
+
+          //pollfd& poll_fd = poll_fds[i];
+          //Client* client  = _clients_by_fd[poll_fd.fd];
+            
+          //Final form of the above two lines
           pollfd& poll_fd = poll_fds[i];
-          Client* client  = _clients_by_fd[poll_fd.fd];
-  
+
+          ClientsMapFd::iterator it = _clients_by_fd.find(poll_fd.fd);
+          if (it == _clients_by_fd.end()){
+            poll_fds.erase(poll_fds.begin() + i);
+            --i;
+            continue;
+          }
+          Client* client = it->second;
+
+          // If the fd is in a bad state, disconnect immediately
+          if (poll_fd.revents & (POLLHUP | POLLERR | POLLNVAL)){
+            disconnectClient(poll_fd.fd, poll_fds, i);
+            continue;
+          }
+          
+          bool should_disconnect = false;
+
           // ------------------------------------------------------------------------ read
           //
           // Reading client data (POLLIN on a client fd)
@@ -234,19 +299,17 @@ void Server::run(){
             //    can be “try again later” (EAGAIN). 
             //    So you’ll refine this later.
 
-            if  ( n <= 0  ) {
-  
-              std::cout
-                        << "Client disconnected fd="
-                        << poll_fd.fd
-                        << std::endl;
-  
-              close(  poll_fd.fd  );
-              delete  client;
-              _clients_by_fd.erase( poll_fd.fd );
-              poll_fds.erase(poll_fds.begin() + i );
-              
-              --i;
+            if  ( n == 0  ) {
+              // peer closed connection
+              disconnectClient(poll_fd.fd, poll_fds, i);
+              continue;
+            }
+
+            if (n < 0){
+              // non-blocking "no data right now" is NOT a disconnect
+              if (errno != EAGAIN && errno != EWOULDBLOCK){
+                disconnectClient(poll_fd.fd, poll_fds, i);
+              }
               continue;
             }
 
@@ -266,15 +329,19 @@ void Server::run(){
             std::string line;
             while ( client->popLine(  line  ) ) {
               Command cmd = parseCommand(line);
+
+              if (cmd.name == "QUIT"){
+                should_disconnect = true;
+                break;
+              }
               handleCommand(*client, cmd);
-              //std::cout
-              //          << "LINE: ["
-              //          << line
-              //          << "]"
-              //          << std::endl;
-              //client->queue("ECHO :" + line);
-            }
+            } 
           } 
+
+          if (should_disconnect){
+            disconnectClient(poll_fd.fd, poll_fds, i);
+            continue;
+          }
           // ----------------------------------------------------------------------- write
 
           //Writing queued output (POLLOUT)
@@ -285,13 +352,20 @@ void Server::run(){
           //2.  Important concept: send may send only part
           //3.  So you erase only the bytes actually sent.
 
-          if (  poll_fd.revents & POLLOUT) {
+          if (  (poll_fd.revents & POLLOUT) && client->hasPendingOutput()) {
                 std::string& out  = client->outbuf();
                 ssize_t sent      = send(poll_fd.fd, out.data(), out.size(), 0);
                 if (  sent > 0  ) {
                   out.erase(  0, sent );
                 }
-          }
+                else if (sent < 0){
+                  // If it's not a "try again later", treat as disconnect
+                  if (errno != EAGAIN && errno != EWOULDBLOCK){
+                    disconnectClient(poll_fd.fd, poll_fds, i);
+                    continue;
+                  }
+                }
+              }
   
           // ----------------------------------------------------- update POLLOUT interest
 
@@ -322,5 +396,14 @@ void Server::handleCommand( Client& client, const Command& cmd ){
       client.queue("PONG"); //fall push_back
     return;
   }
+
+  if (cmd.name == "QUIT") {
+    std::cout << "quit command recieved..." << std::endl; 
+    cmdQUIT(client, cmd);
+    std::cout << "quite command executed..." << std::endl;
+    return;
+  }
 }
+
+
 
