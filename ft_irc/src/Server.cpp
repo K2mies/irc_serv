@@ -10,6 +10,7 @@
 /*                                                                            */
 /* ************************************************************************** */
 #include "Server.hpp"
+#include "Command.hpp"
 
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -32,6 +33,14 @@ Server::Server(int port, const std::string& password)
  * 1.Set up the listening socket (one-time)
  * 2.Wait for events (in a loop)
  * 3.React to events (accept / read / write / cleanup)
+ *
+ * current pipeline is:
+ * recv()
+ *   → inbuf
+ *    → popLine
+ *     → parseCommand
+ *      → handleCommand
+ *       → queue()
  */
 void Server::run(){
 
@@ -256,12 +265,14 @@ void Server::run(){
   
             std::string line;
             while ( client->popLine(  line  ) ) {
-              std::cout
-                        << "LINE: ["
-                        << line
-                        << "]"
-                        << std::endl;
-              client->queue("ECHO :" + line);
+              Command cmd = parseCommand(line);
+              handleCommand(*client, cmd);
+              //std::cout
+              //          << "LINE: ["
+              //          << line
+              //          << "]"
+              //          << std::endl;
+              //client->queue("ECHO :" + line);
             }
           } 
           // ----------------------------------------------------------------------- write
@@ -298,3 +309,18 @@ void Server::run(){
     }
   }
 }
+
+// --------------------------------------------------------------------- getters
+
+// ------------------------------------------------------------- command handler
+void Server::handleCommand( Client& client, const Command& cmd ){
+  if (  cmd.name == "PING"  ){
+    // token is usually in params[0]
+    if ( !cmd.params.empty())
+      client.queue("PONG :" + cmd.params[0]  );
+    else
+      client.queue("PONG"); //fall push_back
+    return;
+  }
+}
+

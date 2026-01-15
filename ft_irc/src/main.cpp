@@ -18,6 +18,7 @@ int main(int argc, char **argv){
     std::cerr
               << "Usage: ./ircserv <port> <password>"
               << std::endl;
+    return (1);
   }
 
   int port              = std::atoi(argv[1]);
@@ -25,4 +26,5 @@ int main(int argc, char **argv){
 
   Server server(port, password);
   server.run();
+  return(0);
 }

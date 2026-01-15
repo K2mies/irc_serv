@@ -17,7 +17,8 @@ DEBUG_FLAGS	:=	-g
 # ---------------------------------------------------------------------------- #
 INC_DIR		:=	./inc
 HEADERS		:=	$(INC_DIR)/Client.hpp				\
-							$(INC_DIR)/Server.hpp
+							$(INC_DIR)/Server.hpp				\
+							$(INC_DIR)/Command.hpp
 							#$(INC_DIR)/Server.hpp			\
 							#$(INC_DIR)/Channel.hpp			\
 							#$(INC_DIR)/Client.hpp			\
@@ -28,7 +29,8 @@ OBJ_DIR		:=	./obj
 # ---------------------------------------------------------------------------- #
 SRC				:=	$(SRC_DIR)/main.cpp					\
 							$(SRC_DIR)/Client.cpp				\
-							$(SRC_DIR)/Server.cpp
+							$(SRC_DIR)/Server.cpp				\
+							$(SRC_DIR)/Command.cpp
 							#$(SRC_DIR)/main.cpp				\
 							#$(SRC_DIR)/Server.cpp			\
 							#$(SRC_DIR)/Channel.cpp			\
