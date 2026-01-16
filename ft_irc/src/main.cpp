@@ -1,26 +1,30 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   Command.hpp                                        :+:      :+:    :+:   */
+/*   main.cpp                                           :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: rhvidste <rhvidste@student.hive.email.com  +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2025/12/18 13:24:15 by rhvidste          #+#    #+#             */
-/*   Updated: 2025/12/18 13:36:53 by rhvidste         ###   ########.fr       */
+/*   Created: 2026/01/13 14:57:23 by rhvidste          #+#    #+#             */
+/*   Updated: 2026/01/13 15:00:10 by rhvidste         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#pragma once
-
+#include "Server.hpp"
 #include <iostream>
-#include <string>
-#include <vector>
 
-struct Command {
-  std::string               prefix;   // rarely used for client->server
-  std::string               name;     // "NICK", "JOIN", ...
-  std::vector<std::string>  params;   // includes trailing as one param if parsed that way
-};
+int main(int argc, char **argv){
+  if (argc != 3){
+    std::cerr
+              << "Usage: ./ircserv <port> <password>"
+              << std::endl;
+    return (1);
+  }
 
-// ------------------------------------------------------------ parsing
-Command parseCommand(const std::string& line);
+  int port              = std::atoi(argv[1]);
+  std::string password  = argv[2];
+
+  Server server(port, password);
+  server.run();
+  return(0);
+}
