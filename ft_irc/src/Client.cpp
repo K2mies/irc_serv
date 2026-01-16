@@ -71,51 +71,51 @@ std::string& Client::inbuf(){ return _in; }
  * 4: Return true if a line was popped, otherwise false
  * @param line  reference to a line variable
  */
-bool Client::popLine( std::string& line ) {
-
-  // IRC lines end with \r\n
-  const std::string::size_type pos = _in.find("\r\n");
-
-  if (pos == std::string::npos)
-    return (  false );
-
-  line =  _in.substr(0, pos);
-          _in.erase (0, pos + 2); // remove line + "\r\n"
-  
-  return (  true  );
-}
+//bool Client::popLine( std::string& line ) {
+//
+//  // IRC lines end with \r\n
+//  const std::string::size_type pos = _in.find("\r\n");
+//
+//  if (pos == std::string::npos)
+//    return (  false );
+//
+//  line =  _in.substr(0, pos);
+//          _in.erase (0, pos + 2); // remove line + "\r\n"
+//  
+//  return (  true  );
+//}
 
 /*
  * @brief more forgiving version of popLine that includes /n
  * preferable used on local jesting
  * @param line  referene to a line variable
  */
-//bool  Client::popLine(  std::string &line ){
-//
-//  //IRC lines end with "\r \n"
-//  std::string::size_type pos = _in.find("\r\n");
-//  std::size_t eol_len = 2;
-//
-//  if (  pos == std::string::npos  ){
-//    pos = _in.find('\n'  );
-//    eol_len = 1;
-//    if (  pos == std::string::npos ){
-//      return (  false );
-//    }
-//    // If the line ends with "\r\n", the earlier find() would have caught it.
-//    // If it ends with "\r", strip it (e.g. when receiving "\r\n" split oddly).
-//    if (  pos > 0 && _in[pos - 1] == '\r'){
-//      line =  _in.substr(0, pos - 1);
-//    } else{
-//      line =  _in.substr(0, pos);
-//    }
-//  } else{
-//      line =  _in.substr(0, pos);
-//  }
-//
-//  _in.erase(0, pos + eol_len);
-//  return ( true );
-//}
+bool  Client::popLine(  std::string &line ){
+
+  //IRC lines end with "\r \n"
+  std::string::size_type pos = _in.find("\r\n");
+  std::size_t eol_len = 2;
+
+  if (  pos == std::string::npos  ){
+    pos = _in.find('\n'  );
+    eol_len = 1;
+    if (  pos == std::string::npos ){
+      return (  false );
+    }
+    // If the line ends with "\r\n", the earlier find() would have caught it.
+    // If it ends with "\r", strip it (e.g. when receiving "\r\n" split oddly).
+    if (  pos > 0 && _in[pos - 1] == '\r'){
+      line =  _in.substr(0, pos - 1);
+    } else{
+      line =  _in.substr(0, pos);
+    }
+  } else{
+      line =  _in.substr(0, pos);
+  }
+
+  _in.erase(0, pos + eol_len);
+  return ( true );
+}
 
 // ---------------------------------------------------------- outbound buffering
 

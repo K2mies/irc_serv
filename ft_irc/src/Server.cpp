@@ -19,7 +19,6 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <cstring>
-#include <cerrno>
 #include <iostream>
 #include <cerrno>
 
@@ -27,13 +26,17 @@
 
 void Server::cmdQUIT  ( Client& c, const Command& cmd ){
   (void)cmd;
+  (void)c;
+
+  //TODO------------currently not used anywhere
+
   // Optionally queue something back (usually not necessary)
   // c.queue("ERROR :Closing Link"); // optional
 
   // Mark client for disconnection.
   // We cannot safely erase from poll_fds inside cmdQUIT without having access to poll_fds.
   // So we use a simple approach: close the fd here; the loop will notice and remove it.
-  close(c.fd());
+  //close(c.fd());
 }
 
 // ------------------------------------------------------------ connection helpers
@@ -226,16 +229,20 @@ void Server::run(){
     //    b.  each connected client (indices 1..N)
 
     if (  poll_fds[0].revents & POLLIN  ){
+      while ( true  ) {
+        int client_fd = accept( _listen_socket_fd, NULL, NULL );
+        
+        if ( client_fd < 0 ){
+          if  (errno == EAGAIN || errno == EWOULDBLOCK  ) break;
+          perror( "accept" );
+          break;
+        }
 
-      int client_fd = accept( _listen_socket_fd, NULL, NULL );
-
-      if( client_fd >= 0) {
-
-          fcntl(  client_fd, F_SETFL, O_NONBLOCK  );
-         _clients_by_fd[client_fd] = new Client(client_fd  );
-         poll_fds.push_back( pollfd{  client_fd, POLLIN, 0 } );
+        fcntl(  client_fd, F_SETFL, O_NONBLOCK  );
+        _clients_by_fd[client_fd] = new Client(client_fd  );
+        poll_fds.push_back( pollfd{  client_fd, POLLIN, 0 } );
          
-         std::cout
+        std::cout
                   << "Client connected fd=" 
                   << client_fd
                   << std::endl;
@@ -313,6 +320,18 @@ void Server::run(){
               continue;
             }
 
+            //TEMPORARY RECV DEBUG-----------------------------------
+            std::cerr << "recv n=" << n << " bytes: ";
+            for (ssize_t k = 0; k < n; ++k) {
+              unsigned char c = static_cast<unsigned char>(buf[k]);
+              if (c == '\r') std::cerr << "\\r";
+              else if (c == '\n') std::cerr << "\\n";
+              else if (c >= 32 && c <= 126) std::cerr << buf[k];
+              else std::cerr << "\\x" << std::hex << (int)c << std::dec;
+            }
+            std::cerr << std::endl;
+            //END OF TEMPORARY RECF DEBUG------------------------------
+
             //Buffer the bytes and extract complete CRLF lines
             //
             //1.  You append raw bytes into the client’s input buffer.
@@ -325,9 +344,22 @@ void Server::run(){
             //4.  This is how you handle partial receives correctly.
   
             client->inbuf().append( buf, n );
+
+            //TEMPORARY INBUF PRIEVIEV-----------------------------------------
+            std::cerr << "inbuf preview: ";
+            for (size_t k = 0; k < client->inbuf().size(); ++k) {
+              unsigned char c = static_cast<unsigned char>(client->inbuf()[k]);
+              if (c == '\r') std::cerr << "\\r";
+              else if (c == '\n') std::cerr << "\\n";
+              else if (c >= 32 && c <= 126) std::cerr << client->inbuf()[k];
+              else std::cerr << ".";
+            }
+            std::cerr << std::endl;
+            // END OF TEMPORARY INBUF PREVIEW----------------------------------
   
             std::string line;
             while ( client->popLine(  line  ) ) {
+              std::cerr << "CMD: [" << line << "]" << std::endl;  //TEMPORARY DEBUG LINE.
               Command cmd = parseCommand(line);
 
               if (cmd.name == "QUIT"){
@@ -355,7 +387,10 @@ void Server::run(){
           if (  (poll_fd.revents & POLLOUT) && client->hasPendingOutput()) {
                 std::string& out  = client->outbuf();
                 ssize_t sent      = send(poll_fd.fd, out.data(), out.size(), 0);
+
                 if (  sent > 0  ) {
+
+                  std::cout << "sent output: " << out << std::endl; // temp call
                   out.erase(  0, sent );
                 }
                 else if (sent < 0){
@@ -393,16 +428,10 @@ void Server::handleCommand( Client& client, const Command& cmd ){
     if ( !cmd.params.empty())
       client.queue("PONG :" + cmd.params[0]  );
     else
-      client.queue("PONG"); //fall push_back
+      client.queue("PONG"); //fall_back
     return;
   }
 
-  if (cmd.name == "QUIT") {
-    std::cout << "quit command recieved..." << std::endl; 
-    cmdQUIT(client, cmd);
-    std::cout << "quite command executed..." << std::endl;
-    return;
-  }
 }
 
 
