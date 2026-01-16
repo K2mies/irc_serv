@@ -320,7 +320,7 @@ void Server::run(){
               continue;
             }
 
-            //TEMPORARY RECV DEBUG-----------------------------------
+            //TEMP TEMPORARY RECV DEBUG-----------------------------------
             std::cerr << "recv n=" << n << " bytes: ";
             for (ssize_t k = 0; k < n; ++k) {
               unsigned char c = static_cast<unsigned char>(buf[k]);
@@ -330,7 +330,7 @@ void Server::run(){
               else std::cerr << "\\x" << std::hex << (int)c << std::dec;
             }
             std::cerr << std::endl;
-            //END OF TEMPORARY RECF DEBUG------------------------------
+            //TEMP END OF TEMPORARY RECF DEBUG------------------------------
 
             //Buffer the bytes and extract complete CRLF lines
             //
@@ -345,7 +345,7 @@ void Server::run(){
   
             client->inbuf().append( buf, n );
 
-            //TEMPORARY INBUF PRIEVIEV-----------------------------------------
+            //TEMP TEMPORARY INBUF PRIEVIEV-----------------------------------------
             std::cerr << "inbuf preview: ";
             for (size_t k = 0; k < client->inbuf().size(); ++k) {
               unsigned char c = static_cast<unsigned char>(client->inbuf()[k]);
@@ -355,11 +355,11 @@ void Server::run(){
               else std::cerr << ".";
             }
             std::cerr << std::endl;
-            // END OF TEMPORARY INBUF PREVIEW----------------------------------
+            // TEMP END OF TEMPORARY INBUF PREVIEW----------------------------------
   
             std::string line;
             while ( client->popLine(  line  ) ) {
-              std::cerr << "CMD: [" << line << "]" << std::endl;  //TEMPORARY DEBUG LINE.
+              std::cerr << "CMD: [" << line << "]" << std::endl;  //TEMP TEMPORARY DEBUG LINE.
               Command cmd = parseCommand(line);
 
               if (cmd.name == "QUIT"){
@@ -390,7 +390,7 @@ void Server::run(){
 
                 if (  sent > 0  ) {
 
-                  std::cout << "sent output: " << out << std::endl; // temp call
+                  std::cout << "sent from server output: " << out << std::endl; //TEMP temp call for debugging
                   out.erase(  0, sent );
                 }
                 else if (sent < 0){
@@ -400,8 +400,7 @@ void Server::run(){
                     continue;
                   }
                 }
-              }
-  
+              } 
           // ----------------------------------------------------- update POLLOUT interest
 
           //Decide whether to watch for POLLOUT
