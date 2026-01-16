@@ -41,6 +41,9 @@ void  Client::setUser(  const std::string& user ){
   _hasUser  = !_user.empty(); //empty user means not yet set by default
 }
 
+bool  Client::hasWelcomed() const { return _welcomed; }
+void  Client::setWelcomed(bool v) { _welcomed = v; }
+
 void  Client::setPassOk(  bool ok ){  _passOk = ok; }
 
 /*

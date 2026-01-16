@@ -29,6 +29,7 @@ private:
   bool          _hasNick    = false;
   bool          _hasUser    = false;
   bool          _registered = false;
+  bool          _welcomed   = false;
 
   ChannelSet    _channels;
 
@@ -46,6 +47,10 @@ public:
   // ----------------------------------------------------- identity / registration
   const std::string&  nick()          const;
   const std::string&  user()          const;
+
+  bool                hasWelcomed()   const;
+  void                setWelcomed(  bool  v );
+
   bool                isRegistered()  const;
 
   // ---------------------------------------------------------------- registration

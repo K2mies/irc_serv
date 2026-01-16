@@ -24,6 +24,72 @@
 
 // ------------------------------------------------------------ command handlers
 
+// ---------------------------------------------------------------- command PASS
+void  Server::cmdPASS ( Client& c, const Command& cmd ){
+  if (  cmd.params.empty()  ) {
+    sendError(c, 461, "PASS :Not enough parameters");
+  }
+  if (  c.isRegistered()  ){
+    sendError(c, 462, ":You may not register"  );
+    return;
+  }
+
+  const std::string& pass = cmd.params[0];
+  if (  _password.empty() || pass == _password )  {
+    c.setPassOk(  true  );
+  }
+  else  {
+    sendError( c, 464, ":Password incorrect");
+  }
+}
+
+// ---------------------------------------------------------------- command NICK
+void Server::cmdNICK(Client& c, const Command& cmd){
+  if (cmd.params.empty()){
+    sendError(c, 431, ":No nickname given");
+    return ;
+  }
+
+  const std::string& newNick = cmd.params[0];
+  if (  newNick.empty())  {
+    sendError(c, 431, ":No nickname given");
+  }
+
+  // Nick in use by someone else?
+  ClientsMapNick::iterator it = _clients_by_nick.find(newNick);
+  if (it != _clients_by_nick.end() && it->second != &c){
+    sendError(c, 433, newNick + " :Nickname is already in use");
+    return ;
+  }
+
+  // Remove old nick mapping if present
+  if (!c.nick().empty())  {
+    ClientsMapNick::iterator old = _clients_by_nick.find(c.nick()  );
+    if (  old != _clients_by_nick.end() && old->second == &c){
+      _clients_by_nick.erase(old);
+    }
+  }
+
+  c.setNick(  newNick );
+  _clients_by_nick[newNick] = &c;
+
+}
+
+// ---------------------------------------------------------------- command USER
+void  Server::cmdUSER( Client& c, const Command& cmd){
+  if (cmd.params.empty()){
+    sendError(c, 461, "USER :Not enough parameters");
+    return ;
+  }
+  if (c.isRegistered()){
+    sendError(c, 462, ":You may not register");
+    return ;
+  }
+
+  c.setUser(cmd.params[0]);
+}
+
+// ---------------------------------------------------------------- command QUIT
 void Server::cmdQUIT  ( Client& c, const Command& cmd ){
   (void)cmd;
   (void)c;
@@ -233,7 +299,7 @@ void Server::run(){
         int client_fd = accept( _listen_socket_fd, NULL, NULL );
         
         if ( client_fd < 0 ){
-          if  (errno == EAGAIN || errno == EWOULDBLOCK  ) break;
+          //if  (errno == EAGAIN || errno == EWOULDBLOCK  ) break;
           perror( "accept" );
           break;
         }
@@ -314,9 +380,9 @@ void Server::run(){
 
             if (n < 0){
               // non-blocking "no data right now" is NOT a disconnect
-              if (errno != EAGAIN && errno != EWOULDBLOCK){
-                disconnectClient(poll_fd.fd, poll_fds, i);
-              }
+              //if (errno != EAGAIN && errno != EWOULDBLOCK){} // ERRNO IS FORBIDDEN IN THIS PROJECT
+              disconnectClient(poll_fd.fd, poll_fds, i);
+              
               continue;
             }
 
@@ -389,16 +455,15 @@ void Server::run(){
                 ssize_t sent      = send(poll_fd.fd, out.data(), out.size(), 0);
 
                 if (  sent > 0  ) {
-
                   std::cout << "sent from server output: " << out << std::endl; //TEMP temp call for debugging
                   out.erase(  0, sent );
                 }
                 else if (sent < 0){
                   // If it's not a "try again later", treat as disconnect
-                  if (errno != EAGAIN && errno != EWOULDBLOCK){
-                    disconnectClient(poll_fd.fd, poll_fds, i);
-                    continue;
-                  }
+                  //if (errno != EAGAIN && errno != EWOULDBLOCK){} // ERNNO IS FORBIDDEN
+                  disconnectClient(poll_fd.fd, poll_fds, i);
+                  continue;
+
                 }
               } 
           // ----------------------------------------------------- update POLLOUT interest
@@ -422,6 +487,7 @@ void Server::run(){
 
 // ------------------------------------------------------------- command handler
 void Server::handleCommand( Client& client, const Command& cmd ){
+  
   if (  cmd.name == "PING"  ){
     // token is usually in params[0]
     if ( !cmd.params.empty())
@@ -430,8 +496,91 @@ void Server::handleCommand( Client& client, const Command& cmd ){
       client.queue("PONG"); //fall_back
     return;
   }
+  
+  if (  cmd.name == "PASS"          ){
+    cmdPASS       (client, cmd  );
+    maybeWelcome  (client       );
+    return;
+  }
+
+  if (  cmd.name == "NICK"          ){
+    cmdNICK       ( client, cmd );
+    maybeWelcome  ( client      );
+    return;
+  }
+
+  if (  cmd.name == "USER"          ){
+    cmdUSER       ( client, cmd );
+    maybeWelcome  ( client      );
+    return;
+  }
+
+  if (  cmd.name == "CAP"){
+    std::cout << "cap skipped" << std::endl;
+    return;
+  }
+
+  // Before registration, ignore other commands (or reply 451 later)
+  if (!client.isRegistered())
+    return;
+
+  // Later: JOIN, PRIVMSG, etc.
 
 }
 
+// ------------------------------------------------------------- routing helpers
 
+//static  std::string itos(int n){
+//  return std::to_string(n);
+//}
+
+static std::string pad3(int code){
+  std::string s = std::to_string(code);
+  while (s.size() < 3) s = "0" + s;
+  return s;
+}
+
+void Server::sendNumeric(  Client& c, int code, const std::string& text){
+  std::string nick = c.nick().empty() ? "*" : c.nick();
+  c.queue(":ircserv " + pad3(code) + " " + " " + text);
+}
+
+void Server::sendError( Client& c, int code, const std::string& text  ){
+  sendNumeric(c, code, text);
+}
+
+
+// --------------------------------------------------------- registration helpers
+void  Server::maybeWelcome(Client& c){
+ // c.tryCompleteRegistration();
+ // if (c.isRegistered() && !c.hasWelcomed()){
+ //   c.setWelcomed(true);
+ //   //sendNumeric(c, 001, ":Welcome to ft_irc " + c.nick());
+ //   // You can add 002/003/004 later if irssi complains.
+ // }
+    std::string prefix = ":ircserv ";
+
+		c.queue(prefix + "001 " + c.nick() +
+				" :Welcome to the Internet Relay Network " +
+				c.nick() + "!" + c.user() + "@localhost");
+
+		c.queue(prefix + "002 " + c.nick() +
+				" :Your host is irc.example.net, running version 1.0");
+
+		c.queue(prefix + "003 " + c.nick() +
+				" :This server was created today");
+
+		c.queue(prefix + "004 " + c.nick() +
+				" irc.example.net 127.0.0.1");
+
+		// MOTD start
+		c.queue(prefix + "375 " + c.nick() +
+				" :- Message of the Day -");
+
+		c.queue(prefix + "372 " + c.nick() +
+				" :- Welcome to my IRC server!");
+
+		c.queue(prefix + "376 " + c.nick() +
+				" :End of /MOTD command");
+}
 

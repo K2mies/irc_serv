@@ -71,4 +71,7 @@ public:
   // ------------------------------------------------------------- routing helpers
   void  sendNumeric (  Client& c, int code, const std::string& text );
   void  sendError   (  Client& c, int code, const std::string& text );
+
+  // -------------------------------------------;------------- registration helpers
+  void  maybeWelcome(Client& c);
 };
