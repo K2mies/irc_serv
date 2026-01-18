@@ -11,20 +11,25 @@
 /* ************************************************************************** */
 
 #include "Server.hpp"
-#include <iostream>
 
 int main(int argc, char **argv){
-  if (argc != 3){
-    std::cerr
-              << "Usage: ./ircserv <port> <password>"
-              << std::endl;
-    return (1);
-  }
+	if (argc != 3){
+		std::cerr
+							<< "Usage: ./ircserv <port> <password>"
+							<< std::endl;
+		return (1);
+	}
 
-  int port              = std::atoi(argv[1]);
-  std::string password  = argv[2];
+	try {
+		int port              = std::atoi(argv[1]);
+		std::string password  = argv[2];
 
-  Server server(port, password);
-  server.run();
-  return(0);
+		Server server(port, password);
+		server.run();
+	} catch (std::exception & e) {
+			std::cout << "Fatal error: " << e.what() << ".\n";
+			return (1);
+	}
+	
+	return(0);
 }

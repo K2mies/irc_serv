@@ -29,6 +29,7 @@ private:
   bool          _hasNick    = false;
   bool          _hasUser    = false;
   bool          _registered = false;
+  bool          _welcomed   = false;
 
   ChannelSet    _channels;
 
@@ -47,12 +48,14 @@ public:
   const std::string&  nick()          const;
   const std::string&  user()          const;
   bool                isRegistered()  const;
+  bool                isWelcomed()    const;
 
   // ---------------------------------------------------------------- registration
   void  setNick   ( const std::string& nick );
   void  setUser   ( const std::string& user );
   void  setPassOk ( bool ok );
   void  tryCompleteRegistration(); // sets registered when PASS(if needed)+NICK+USER are ready
+  void  setWelcomed();
 
   // ----------------------------------------------------------- inbound buffering
   std::string& inbuf();                 // append recv() bytes here

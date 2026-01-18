@@ -30,7 +30,7 @@ typedef std::unordered_map<std::string, Channel*>    ChannelMap;
 class Server {
 private:
 
-  uint32_t          _port;
+  uint16_t          _port;
   std::string       _password;
 
   int               _listen_socket_fd;
@@ -50,7 +50,7 @@ private:
 
   // ------------------------------------------------------------ connection helpers
   void  disconnectClient(int fd, std::vector<pollfd>& poll_fds, size_t& i);
-  void  sendWelcome(Client& client);
+  void  maybeWelcome(Client& client);
 
 public:
 

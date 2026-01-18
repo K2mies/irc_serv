@@ -18,7 +18,8 @@ Client::Client( int fd  )  :  _fd( fd ),
                               _passOk     ( false ),
                               _hasNick    ( false ),
                               _hasUser    ( false ),
-                              _registered ( false )  {}
+                              _registered ( false ),
+                              _welcomed   ( false ) {}
 
 // ---------------------------------------------------------------------- getter
 int Client::fd() const {  return _fd; }
@@ -28,7 +29,7 @@ int Client::fd() const {  return _fd; }
 const std::string&  Client::nick()          const{ return  _nick; }
 const std::string&  Client::user()          const{ return  _user; }
 bool                Client::isRegistered()  const{ return _registered;  }
-
+bool                Client::isWelcomed()    const{ return _welcomed;  }
 
 // ----------------------------------------------------- identity / registration
 void  Client::setNick(  const std::string& nick ){
@@ -56,6 +57,10 @@ void  Client::tryCompleteRegistration(){
   if(_passOk && _hasNick && _hasUser){
     _registered = true;
   }
+}
+
+void  Client::setWelcomed(){
+  _welcomed = true;
 }
 
 // ----------------------------------------------------------- inbound buffering
