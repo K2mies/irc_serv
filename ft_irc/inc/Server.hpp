@@ -14,13 +14,13 @@
 #include "Channel.hpp"
 #include "Client.hpp"
 #include "Command.hpp"
+#include "Signals.hpp"
 #include <iostream>
 #include <poll.h>
 #include <unordered_map>
 #include <vector>
 #include <cstdint>
 #include <string>
-
 
 // --------------------------------------------------------------------- typedef
 typedef std::unordered_map<int, Client*>             ClientsMapFd;
@@ -56,6 +56,7 @@ public:
 
   // ------------------------------------------------------------------------ init
   Server(int port, const std::string& password);
+  ~Server();
 
   void run();
 
@@ -66,6 +67,7 @@ public:
 
   Channel& getOrCreateChannel ( const std::string& name );
   std::string getPass() { return _password; };
+
   // ------------------------------------------------------------- command handler
   void    handleCommand       ( Client &client, const Command &cmd );
 

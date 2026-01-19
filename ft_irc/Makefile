@@ -18,11 +18,13 @@ DEBUG_FLAGS	:=	-g
 INC_DIR		:=	./inc
 HEADERS		:=	$(INC_DIR)/Client.hpp				\
 							$(INC_DIR)/Server.hpp				\
-							$(INC_DIR)/Command.hpp
-							#$(INC_DIR)/Server.hpp			\
+							$(INC_DIR)/Command.hpp			\
+							$(INC_DIR)/Signals.hpp			
+
 							#$(INC_DIR)/Channel.hpp			\
 							#$(INC_DIR)/Client.hpp			\
 							#$(INC_DIR)/Command.hpp
+
 # ---------------------------------------------------------------------------- #
 SRC_DIR		:=	./src
 OBJ_DIR		:=	./obj
@@ -30,12 +32,12 @@ OBJ_DIR		:=	./obj
 SRC				:=	$(SRC_DIR)/main.cpp					\
 							$(SRC_DIR)/Client.cpp				\
 							$(SRC_DIR)/Server.cpp				\
-							$(SRC_DIR)/Command.cpp
-							#$(SRC_DIR)/main.cpp				\
-							#$(SRC_DIR)/Server.cpp			\
+							$(SRC_DIR)/Command.cpp				\
+							$(SRC_DIR)/Signals.cpp
+
 							#$(SRC_DIR)/Channel.cpp			\
 							#$(SRC_DIR)/Clientl.cpp			\
-							#$(SRC_DIR)/Command.cpp
+							#$(SRC_DIR)/Command.cpp			
 
 # ---------------------------------------------------------------------------- #
 OBJ				:=	$(patsubst $(SRC_DIR)/%.cpp, $(OBJ_DIR)/%.o, $(SRC))

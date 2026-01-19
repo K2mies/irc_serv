@@ -123,7 +123,16 @@ Server::Server(int port, const std::string& password)
 										  _password(password),
 										  _listen_socket_fd(-1) {}
 
-// ------------------------- SERVER LOGIC --------------------------
+// ----------------------------- DESTRUCTOR ------------------------------
+Server::~Server(){
+	for (ClientsMapFd::iterator it = _clients_by_fd.begin();
+		it != _clients_by_fd.end(); ++it) {
+				close(it->first);
+				delete it->second;
+	}
+	close(_listen_socket_fd);
+}
+// -------------------------- SERVER LOGIC -------------------------
 
 void Server::run(){
 	/* Create listening socket */
@@ -178,7 +187,7 @@ void Server::run(){
 			<< " ...\n";
 
 	// ------------------------- MAIN LOOP -------------------------
-	while (true){
+	while (check_signals()){
 		/* POLL: poll(...) blocks the event loop(this is OK!) until
 		something happens on any watched fd. Parameters given:
 			1. poll.fds.data() gives poll the underlying array
@@ -187,7 +196,8 @@ void Server::run(){
 		When poll() returns, it has filled in revents for each entry
 		describing what happened. */
 		if (poll(poll_fds.data(), poll_fds.size(), -1) < 0){
-			close(_listen_socket_fd);
+			if (!check_signals())
+				break;
 			throw std::runtime_error("poll failed");
 		}
 
@@ -202,10 +212,15 @@ void Server::run(){
 				- the listen socket(index 0)
 				- each connected client (index 1..N) */
 		for (size_t i = 0; i < poll_fds.size(); ++i){
+			if (!check_signals())
+				break;
 			/* Handle fatal socket events */
 			if (poll_fds[i].revents & (POLLERR | POLLHUP | POLLNVAL)){
-				if (poll_fds[i].fd == _listen_socket_fd)
+				if (poll_fds[i].fd == _listen_socket_fd){
+					if (!check_signals())
+						break;
 					throw std::runtime_error("listening socket failed in main loop");
+				}
 				disconnectClient(poll_fds[i].fd, poll_fds, i);
 				continue;
 			}
