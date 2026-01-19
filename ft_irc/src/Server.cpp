@@ -10,71 +10,71 @@
 // ------------------------------------------------------------ command handlers
 
 // ---------------------------------------------------------------- command PASS
-void  Server::cmdPASS ( Client& c, const Command& cmd ){
+void  Server::cmdPASS ( Client& client, const Command& cmd ){
 	if (  cmd.params.empty()  ) {
-		sendError(c, 461, "PASS :Not enough parameters");
+		sendError(client, 461, "PASS :Not enough parameters");
 		return;
 	}
-	if (  c.isRegistered()  ) {
-		sendError(c, 462, ":You may not register"  );
+	if (  client.isRegistered()  ) {
+		sendError(client, 462, ":You may not register"  );
 		return;
 	}
 
 	const std::string& pass = cmd.params[0];
 	if (  _password.empty() || pass == _password ) {
-		c.setPassOk(  true  );
+		client.setPassOk(  true  );
 	}
 	else {
-		sendError( c, 464, ":Password incorrect");
+		sendError( client, 464, ":Password incorrect");
 	}
 }
 
 // ---------------------------------------------------------------- command NICK
-void Server::cmdNICK(Client& c, const Command& cmd){
+void Server::cmdNICK(Client& client, const Command& cmd){
 	if (cmd.params.empty()){
-		sendError(c, 431, ":No nickname given");
+		sendError(client, 431, ":No nickname given");
 		return ;
 	}
 
 	const std::string& newNick = cmd.params[0];
 	if (  newNick.empty())  {
-		sendError(c, 431, ":No nickname given");
+		sendError(cleint, 431, ":No nickname given");
 		return ;
 	}
 
 	// Nick in use by someone else?
 	ClientsMapNick::iterator it = _clients_by_nick.find(newNick);
-	if (it != _clients_by_nick.end() && it->second != &c){
-		sendError(c, 433, newNick + " :Nickname is already in use");
+	if (it != _clients_by_nick.end() && it->second != &client){
+		sendError(client, 433, newNick + " :Nickname is already in use");
 		return ;
 	}
 
 	// Remove old nick mapping if present
 	if (!c.nick().empty())  {
-		ClientsMapNick::iterator old = _clients_by_nick.find(c.nick()  );
-		if (  old != _clients_by_nick.end() && old->second == &c){
+		ClientsMapNick::iterator old = _clients_by_nick.find(client.nick()  );
+		if (  old != _clients_by_nick.end() && old->second == &client){
 			_clients_by_nick.erase(old);
 		}
 	}
 
-	c.setNick(  newNick );
-	_clients_by_nick[newNick] = &c;
+	client.setNick(  newNick );
+	_clients_by_nick[newNick] = &client;
 
 }
 
 // ---------------------------------------------------------------- command USER
-void  Server::cmdUSER( Client& c, const Command& cmd){
+void  Server::cmdUSER( Client& client, const Command& cmd){
 	if (cmd.params.empty()){
-		sendError(c, 461, "USER :Not enough parameters");
+		sendError(client, 461, "USER :Not enough parameters");
 		return ;
 	}
-	if (c.isRegistered()){
-		sendError(c, 462, ":You may not register");
+	if (client.isRegistered()){
+		sendError(client, 462, ":You may not register");
 		return ;
 	}
 
-	c.setUser(cmd.params[0]);
-	c.tryCompleteRegistration();
+	client.setUser(cmd.params[0]);
+	client.tryCompleteRegistration();
 	}
 
 //TODO------------currently not used anywhere
@@ -351,13 +351,13 @@ static std::string pad3(int code){
 	return s;
 }
 
-void Server::sendNumeric(  Client& c, int code, const std::string& text){
-	std::string nick = c.nick().empty() ? "*" : c.nick();
-	c.queue(":ircserv " + pad3(code) + " " + nick + " " + text);
+void Server::sendNumeric(  Client& client, int code, const std::string& text){
+	std::string nick = client.nick().empty() ? "*" : client.nick();
+	client.queue(":ircserv " + pad3(code) + " " + nick + " " + text);
 }
 
-void Server::sendError( Client& c, int code, const std::string& text  ){
-	sendNumeric(c, code, text);
+void Server::sendError( Client& client, int code, const std::string& text  ){
+	sendNumeric(client, code, text);
 }
 
 // ------------------------------------------------------------- command handler
@@ -417,29 +417,29 @@ void Server::handleCommand( Client& client, const Command& cmd ){
 }
 
 // --------------------------------------------------------- registration helpers
-void  Server::maybeWelcome(Client& c){
+void  Server::maybeWelcome(Client& client){
 	std::string prefix = ":ircserv ";
 
-		c.queue(prefix + "001 " + c.nick() +
+		client.queue(prefix + "001 " + client.nick() +
 				" :Welcome to the Internet Relay Network " +
-				c.nick() + "!" + c.user() + "@localhost");
+				client.nick() + "!" + client.user() + "@localhost");
 
-		c.queue(prefix + "002 " + c.nick() +
+		client.queue(prefix + "002 " + client.nick() +
 				" :Your host is localhost, running version 1.0");
 
-		c.queue(prefix + "003 " + c.nick() +
+		client.queue(prefix + "003 " + client.nick() +
 				" :This server was created today");
 
-		c.queue(prefix + "004 " + c.nick() +
+		client.queue(prefix + "004 " + client.nick() +
 				" localhost 127.0.0.1");
 
 		// MOTD start
-		c.queue(prefix + "375 " + c.nick() +
+		client.queue(prefix + "375 " + client.nick() +
 				" :- Message of the Day -");
 
-		c.queue(prefix + "372 " + c.nick() +
+		client.queue(prefix + "372 " + client.nick() +
 				" :- Welcome to my IRC server!");
 
-		c.queue(prefix + "376 " + c.nick() +
+		client.queue(prefix + "376 " + client.nick() +
 				" :End of /MOTD command");
 }

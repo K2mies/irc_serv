@@ -41,12 +41,12 @@ private:
 
 private:
   // ------------------------------------------------------------ command handlers
-  void  cmdPASS     ( Client& c, const Command& cmd );
-  void  cmdNICK     ( Client& c, const Command& cmd );
-  void  cmdUSER     ( Client& c, const Command& cmd );
-  void  cmdJOIN     ( Client& c, const Command& cmd );
-  void  cmdQUIT     ( Client& c, const Command& cmd );
-  void  cmdPRIVMSG  ( Client& c, const Command& cmd );
+  void  cmdPASS     ( Client& client, const Command& cmd );
+  void  cmdNICK     ( Client& client, const Command& cmd );
+  void  cmdUSER     ( Client& client, const Command& cmd );
+  void  cmdJOIN     ( Client& client, const Command& cmd );
+  void  cmdQUIT     ( Client& client, const Command& cmd );
+  void  cmdPRIVMSG  ( Client& client, const Command& cmd );
 
   // ------------------------------------------------------------ connection helpers
   void  disconnectClient(int fd, std::vector<pollfd>& poll_fds, size_t& i);
@@ -70,6 +70,6 @@ public:
   void    handleCommand       ( Client &client, const Command &cmd );
 
   // ------------------------------------------------------------- routing helpers
-  void  sendNumeric (  Client& c, int code, const std::string& text );
-  void  sendError   (  Client& c, int code, const std::string& text );
+  void  sendNumeric (  Client& client, int code, const std::string& text );
+  void  sendError   (  Client& client, int code, const std::string& text );
 };
