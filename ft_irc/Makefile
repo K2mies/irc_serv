@@ -10,34 +10,41 @@
 #                                                                              #
 # **************************************************************************** #
 
-NAME		:=	ircserv
-CC			:=	c++
-FLAGS		:=	-Wall -Werror -Wextra -std=c++20
+NAME			:=	ircserv
+CC				:=	c++
+FLAGS			:=	-Wall -Werror -Wextra -std=c++20
 DEBUG_FLAGS	:=	-g
 # ---------------------------------------------------------------------------- #
 INC_DIR		:=	./inc
-HEADERS		:=	$(INC_DIR)/Server.hpp				\
-							$(INC_DIR)/Channel.hpp			\
-							$(INC_DIR)/Client.hpp				\
+HEADERS		:=	$(INC_DIR)/Client.hpp				\
+							$(INC_DIR)/Server.hpp				\
 							$(INC_DIR)/Command.hpp
+							#$(INC_DIR)/Server.hpp			\
+							#$(INC_DIR)/Channel.hpp			\
+							#$(INC_DIR)/Client.hpp			\
+							#$(INC_DIR)/Command.hpp
 # ---------------------------------------------------------------------------- #
 SRC_DIR		:=	./src
 OBJ_DIR		:=	./obj
 # ---------------------------------------------------------------------------- #
 SRC				:=	$(SRC_DIR)/main.cpp					\
+							$(SRC_DIR)/Client.cpp				\
 							$(SRC_DIR)/Server.cpp				\
-							$(SRC_DIR)/Channel.cpp			\
-							$(SRC_DIR)/Clientl.cpp			\
 							$(SRC_DIR)/Command.cpp
+							#$(SRC_DIR)/main.cpp				\
+							#$(SRC_DIR)/Server.cpp			\
+							#$(SRC_DIR)/Channel.cpp			\
+							#$(SRC_DIR)/Clientl.cpp			\
+							#$(SRC_DIR)/Command.cpp
 
 # ---------------------------------------------------------------------------- #
-OBJ			:=	$(patsubst $(SRC_DIR)/%.cpp, $(OBJ_DIR)/%.o, $(SRC))
+OBJ				:=	$(patsubst $(SRC_DIR)/%.cpp, $(OBJ_DIR)/%.o, $(SRC))
 
 .SECONDARY: $(OBJ)
 # ---------------------------------------------------------------------------- #
-RED			:= \033[0;31m
-GREEN		:= \033[0;32m
-EC			:= \033[0m
+RED				:= \033[0;31m
+GREEN			:= \033[0;32m
+EC				:= \033[0m
 # ---------------------------------------------------------------------------- #
 
 all: $(NAME)
@@ -48,7 +55,7 @@ $(NAME): $(OBJ)
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(HEADERS)
 	@mkdir -p $(OBJ_DIR)
-	$(CXX) $(FLAGS) -I $(INC_DIR) -c $< -o $@
+	$(CC) $(FLAGS) -I $(INC_DIR) -c $< -o $@
 
 # ---------------------------------------------------------------------------- #
 clean:
