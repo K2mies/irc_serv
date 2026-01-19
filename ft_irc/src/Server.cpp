@@ -215,12 +215,8 @@ void Server::run(){
 				while (true){
 					int client_fd = accept(_listen_socket_fd, NULL, NULL);
 					if (client_fd < 0) {
-						if (errno == EAGAIN || errno == EWOULDBLOCK)
-							break;
-						else{
-							std::cerr << "client_fd accept failed";
-							break;
-						}
+						std::cerr << "client_fd accept failed";
+						break;
 					}
 					if (fcntl(client_fd, F_SETFL, O_NONBLOCK) < 0){
 						close(client_fd);
@@ -367,6 +363,8 @@ void Server::sendError( Client& c, int code, const std::string& text  ){
 // ------------------------------------------------------------- command handler
 void Server::handleCommand( Client& client, const Command& cmd ){
 
+
+	// ------------------------------------------------------------ for registration
 	if (  cmd.name == "PING"  ){
 		// token is usually in params[0]
 		if ( !cmd.params.empty())
@@ -406,10 +404,13 @@ void Server::handleCommand( Client& client, const Command& cmd ){
 		sendError(client, 451, ":You have not registered");
 		return;
 	}
-	else{
-		sendError(client, 421, cmd.name + " :Unknown command");
-		return;
-	}
+	//else{
+	//	sendError(client, 421, cmd.name + " :Unknown command");
+	//	return;
+	//}
+
+	// ---------------------------------------------------------- after registration
+
 
 	// Later: JOIN, PRIVMSG, etc.
 
