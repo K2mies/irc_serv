@@ -38,7 +38,7 @@ void Server::cmdNICK(Client& client, const Command& cmd){
 
 	const std::string& newNick = cmd.params[0];
 	if (  newNick.empty())  {
-		sendError(cleint, 431, ":No nickname given");
+		sendError(client, 431, ":No nickname given");
 		return ;
 	}
 
@@ -50,7 +50,7 @@ void Server::cmdNICK(Client& client, const Command& cmd){
 	}
 
 	// Remove old nick mapping if present
-	if (!c.nick().empty())  {
+	if (!client.nick().empty())  {
 		ClientsMapNick::iterator old = _clients_by_nick.find(client.nick()  );
 		if (  old != _clients_by_nick.end() && old->second == &client){
 			_clients_by_nick.erase(old);
@@ -117,13 +117,13 @@ void  Server::disconnectClient(int fd, std::vector<pollfd>& poll_fds, size_t& i)
 	--i;
 	}
 
-// ----------------------------- INIT ------------------------------
+// -------------------------------------- INIT ----------------------------------
 Server::Server(int port, const std::string& password)
 										: _port(port),
 										  _password(password),
 										  _listen_socket_fd(-1) {}
 
-// ------------------------- SERVER LOGIC --------------------------
+// ---------------------------------- SERVER LOGIC ------------------------------
 
 void Server::run(){
 	/* Create listening socket */
@@ -177,7 +177,7 @@ void Server::run(){
 			<< _port
 			<< " ...\n";
 
-	// ------------------------- MAIN LOOP -------------------------
+	// ---------------------------------- MAIN LOOP --------------------------------
 	while (true){
 		/* POLL: poll(...) blocks the event loop(this is OK!) until
 		something happens on any watched fd. Parameters given:
@@ -210,7 +210,7 @@ void Server::run(){
 				continue;
 			}
 
-			// ----------------------- ACCEPT ----------------------
+			// ----------------------------------- ACCEPT ----------------------------------
 			if (poll_fds[i].revents & POLLIN && poll_fds[i].fd == _listen_socket_fd){
 				while (true){
 					int client_fd = accept(_listen_socket_fd, NULL, NULL);
@@ -245,7 +245,7 @@ void Server::run(){
 
 			/* Handle readable sockets */
 			if (poll_fds[i].revents & POLLIN){
-				// ------------------- READ --------------------
+			  // ------------------------------------ READ -----------------------------------
 				char  buf[4096];
 				ssize_t n = recv(  poll_fd.fd, buf, sizeof(  buf ), 0);
 	
@@ -292,12 +292,12 @@ void Server::run(){
 					handleCommand(*client, cmd);
 				}
 			}
-			// --------------------- QUIT CLIENT -------------------
+			// -------------------------------- QUIT CLIENT --------------------------------
 			if (should_disconnect){
 				disconnectClient(poll_fd.fd, poll_fds, i);
 				continue;
 			}
-			// ---------------------- WRITE ------------------------
+			// ----------------------------------- WRITE -----------------------------------
 			//Writing queued output (POLLOUT)
 			//
 			//1.  Meaning:
@@ -321,6 +321,7 @@ void Server::run(){
 					continue;
 				}
 			}
+
 			// ----------------------------------------------------- update POLLOUT interest
 
 			//Decide whether to watch for POLLOUT
