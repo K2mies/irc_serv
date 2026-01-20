@@ -90,6 +90,9 @@ void  Server::cmdUSER( Client& c, const Command& cmd){
 // ------------------------------------------------------------ connection helpers
 void  Server::disconnectClient(int fd, std::vector<pollfd>& poll_fds, size_t& i){
 	ClientsMapFd::iterator it = _clients_by_fd.find(fd);
+	std::cout << "Client disconnected fd="
+						<< fd << "\n";
+
 	if (it == _clients_by_fd.end()){
 		// fd not found; still remove poll entry if you want, but usually shouldn't happen
 		poll_fds.erase(poll_fds.begin() + i );
@@ -201,6 +204,27 @@ void Server::run(){
 			throw std::runtime_error("poll failed");
 		}
 
+
+		// ----------------------- ACCEPT ----------------------
+		if (poll_fds[0].revents & POLLIN){
+			while (true){
+				int client_fd = accept(_listen_socket_fd, NULL, NULL);
+				if (client_fd < 0) {
+					break;
+				}
+				if (fcntl(client_fd, F_SETFL, O_NONBLOCK) < 0){
+					close(client_fd);
+					continue;
+				}
+				_clients_by_fd[client_fd] = new Client(client_fd);
+				poll_fds.push_back(pollfd{client_fd, POLLIN, 0});
+
+				std::cout << "Client connected fd="
+						<< client_fd << "\n";
+			}
+			continue;
+		}
+
 		/* Handling events: accept/read/write 
 			Check: Did poll say the listening socket is readable?
 				if yes, then a connection is waiting in the kernel's queue.
@@ -211,41 +235,9 @@ void Server::run(){
 			After this, server is watching: 
 				- the listen socket(index 0)
 				- each connected client (index 1..N) */
-		for (size_t i = 0; i < poll_fds.size(); ++i){
+		for (size_t i = 1; i < poll_fds.size(); i++){
 			if (!check_signals())
 				break;
-			/* Handle fatal socket events */
-			if (poll_fds[i].revents & (POLLERR | POLLHUP | POLLNVAL)){
-				if (poll_fds[i].fd == _listen_socket_fd){
-					if (!check_signals())
-						break;
-					throw std::runtime_error("listening socket failed in main loop");
-				}
-				disconnectClient(poll_fds[i].fd, poll_fds, i);
-				continue;
-			}
-
-			// ----------------------- ACCEPT ----------------------
-			if (poll_fds[i].revents & POLLIN && poll_fds[i].fd == _listen_socket_fd){
-				while (true){
-					int client_fd = accept(_listen_socket_fd, NULL, NULL);
-					if (client_fd < 0) {
-						std::cerr << "client_fd accept failed";
-						break;
-					}
-					if (fcntl(client_fd, F_SETFL, O_NONBLOCK) < 0){
-						close(client_fd);
-						continue;
-					}
-					_clients_by_fd[client_fd] = new Client(client_fd);
-					poll_fds.push_back(pollfd{client_fd, POLLIN, 0});
-
-					std::cout << "Client connected fd="
-							<< client_fd << "\n";
-				}
-				continue;
-			}
-
 			pollfd& poll_fd = poll_fds[i];
 
 			ClientsMapFd::iterator it = _clients_by_fd.find(poll_fd.fd);
@@ -256,10 +248,21 @@ void Server::run(){
 			}
 			Client* client = it->second;
 
+			// If the fd is in a bad state, disconnect immediately
+			if (poll_fd.revents & (POLLHUP | POLLERR | POLLNVAL)){
+				if (poll_fds[i].fd == _listen_socket_fd){
+					if (!check_signals())
+						break;
+					throw std::runtime_error("listening socket failed in main loop");
+				}
+				disconnectClient(poll_fd.fd, poll_fds, i);
+				continue;
+			}
+
 			bool should_disconnect = false;
 
 			/* Handle readable sockets */
-			if (poll_fds[i].revents & POLLIN){
+			if (poll_fd.revents & POLLIN){
 				// ------------------- READ --------------------
 				char  buf[4096];
 				ssize_t n = recv(  poll_fd.fd, buf, sizeof(  buf ), 0);
@@ -299,7 +302,11 @@ void Server::run(){
 				std::string line;
 				while ( client->popLine(  line  ) ) {
 					Command cmd = parseCommand(line);
-					std::cerr << cmd.name << "\n";
+					std::cerr << cmd.name;
+					for (auto x : cmd.params){
+						std::cerr << x << " ";
+					}
+					std::cerr << "\n";
 					if (cmd.name == "QUIT"){
 						should_disconnect = true;
 						break;
@@ -326,7 +333,7 @@ void Server::run(){
 				ssize_t sent      = send(poll_fd.fd, out.data(), out.size(), 0);
 
 				if (  sent > 0  ) {
-					// std::cout << "sent from server output: " << out << std::endl; //TEMP temp call for debugging
+					std::cout << "sent from server output: " << out << std::endl; //TEMP temp call for debugging
 					out.erase(  0, sent );
 				}
 				else if (sent < 0){
