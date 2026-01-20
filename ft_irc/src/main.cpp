@@ -12,6 +12,8 @@
 
 #include "Server.hpp"
 
+volatile sig_atomic_t g_signal = 0;
+
 int main(int argc, char **argv){
 	if (argc != 3){
 		std::cerr
@@ -23,8 +25,10 @@ int main(int argc, char **argv){
 	try {
 		int port              = std::atoi(argv[1]);
 		std::string password  = argv[2];
+		struct sigaction		sa;
 
 		Server server(port, password);
+		init_signals(&sa);
 		server.run();
 	} catch (std::exception & e) {
 			std::cout << "Fatal error: " << e.what() << ".\n";
