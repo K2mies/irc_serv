@@ -225,14 +225,14 @@ void Server::run(){
 			continue;
 		}
 
-		/* Handling events: accept/read/write 
+		/* Handling events: accept/read/write
 			Check: Did poll say the listening socket is readable?
 				if yes, then a connection is waiting in the kernel's queue.
 			accept() creates a new socket(client_fd) dedicated to that client.
 			set the client socket non_blocking (fcntl)
 			Create a new Client object and store it in the data.
 			Add the client socket into poll_fds so poll can watch it.
-			After this, server is watching: 
+			After this, server is watching:
 				- the listen socket(index 0)
 				- each connected client (index 1..N) */
 		for (size_t i = 1; i < poll_fds.size(); i++){
@@ -266,12 +266,12 @@ void Server::run(){
 				// ------------------- READ --------------------
 				char  buf[4096];
 				ssize_t n = recv(  poll_fd.fd, buf, sizeof(  buf ), 0);
-	
+
 				//Disconnect handling
 				//a.  n == 0 → client closed connection
 				//b.  n < 0 → error
-				//1.  But because you’re non-blocking, n < 0 
-				//    can be “try again later” (EAGAIN). 
+				//1.  But because you’re non-blocking, n < 0
+				//    can be “try again later” (EAGAIN).
 				//    So you’ll refine this later.
 
 				if  ( n == 0  ) {

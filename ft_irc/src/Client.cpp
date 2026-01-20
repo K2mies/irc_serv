@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Client.cpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: rhvidste <rhvidste@student.hive.email.com  +#+  +:+       +#+        */
+/*   By: jforsten <jforsten@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/01/12 11:31:40 by rhvidste          #+#    #+#             */
-/*   Updated: 2026/01/12 14:49:54 by rhvidste         ###   ########.fr       */
+/*   Updated: 2026/01/20 19:38:03 by jforsten         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -50,7 +50,7 @@ void  Client::setPassOk(  bool ok ){  _passOk = ok; }
 void  Client::tryCompleteRegistration(){
   if( _registered ){
     std::cout
-              << "Client is already registered..." 
+              << "Client is already registered..."
               << std::endl;
     return;
   }
@@ -86,7 +86,7 @@ std::string& Client::inbuf(){ return _in; }
 //
 //  line =  _in.substr(0, pos);
 //          _in.erase (0, pos + 2); // remove line + "\r\n"
-//  
+//
 //  return (  true  );
 //}
 
@@ -129,13 +129,10 @@ bool  Client::popLine(  std::string &line ){
  * @param msg   const string message variable
  */
 void Client::queue( const std::string& msg  ){
-  _out += msg;
+	_out += msg;
 
-  if (msg.size() < 2 || 
-      msg.substr(msg.size() - 2) != "\r\n"){
-
-      _out += "\r\n";
-  }
+	if (msg.size() < 2 || msg.substr(msg.size() - 2) != "\r\n")
+		_out += "\r\n";
 }
 
 /*
