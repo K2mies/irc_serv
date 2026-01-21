@@ -80,7 +80,7 @@ Command parseCommand( const std::string &line ){
   }
 
   //-----------------------------TEMP FOR DEBUGGING
-  std::cout
+  std::cerr
             <<  "cmd prefix: "
             <<  cmd.prefix
             <<  std::endl
@@ -92,9 +92,9 @@ Command parseCommand( const std::string &line ){
             << "params: ";
 
   for ( auto &param : cmd.params ){
-    std::cout << "(" << param << "), ";
+    std::cerr << "(" << param << "), ";
   }
-  std::cout << std::endl;
+  std::cerr << std::endl;
 
   return ( cmd );
 }

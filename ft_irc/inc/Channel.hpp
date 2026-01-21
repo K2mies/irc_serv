@@ -16,6 +16,8 @@
 #include <unordered_set>
 #include "Client.hpp"
 
+class Client;
+
 class Channel
 {
   public:
@@ -23,13 +25,13 @@ class Channel
 
     const std::string& name() const;
 
-    bool  hasMember(  const Client* c ) const;
-    void  addMember(        Client* c );
-    void  removeMember(     Client* c );
+    bool  hasMember(  const Client* client ) const;
+    void  addMember(        Client* client );
+    void  removeMember(     Client* client );
 
-    bool  isOperator( const Client* c ) const;
-    void  addOperator(      Client* c );
-    void  removeOperator(   Client* c );
+    bool  isOperator( const Client* client ) const;
+    void  addOperator(      Client* client );
+    void  removeOperator(   Client* client );
 
     void  broadcast(const std::string& msg, const Client* except = 0); // "except = sender" if set to default(0) will send to everyone
   

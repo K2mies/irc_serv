@@ -23,9 +23,9 @@
 #include <string>
 
 // --------------------------------------------------------------------- typedef
-typedef std::unordered_map<int, Client*>             ClientsMapFd;
-typedef std::unordered_map<std::string, Client*>     ClientsMapNick;
-typedef std::unordered_map<std::string, Channel*>    ChannelMap;
+typedef std::unordered_map<int, Client*>              ClientsMapFd;
+typedef std::unordered_map<std::string, Client*>      ClientsMapNick;
+typedef std::unordered_map<std::string, Channel>      ChannelMap;
 
 class Server {
 private:

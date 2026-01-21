@@ -30,6 +30,17 @@ void  Server::cmdPASS ( Client& client, const Command& cmd ){
 }
 
 // ---------------------------------------------------------------- command NICK
+
+static bool isValidNick(const std::string &nick){
+	if (nick.empty()) return false;
+	if (nick[0] == '#' || nick[0] == ':')return false;
+	for (size_t i = 0; i < nick.size(); ++i){
+		if (nick[i] == ' ' || nick[i] == '\r' || nick[i] == '\n')
+			return false;
+	}
+	return true;
+}
+
 void Server::cmdNICK(Client& client, const Command& cmd){
 	if (cmd.params.empty()){
 		sendError(client, 431, ":No nickname given");
@@ -41,6 +52,16 @@ void Server::cmdNICK(Client& client, const Command& cmd){
 		sendError(client, 431, ":No nickname given");
 		return ;
 	}
+
+	// is the nick valid?
+	if (!isValidNick(newNick)){
+		sendError(client, 432, newNick + " :Erroneous nickname");
+		return ;
+	}
+
+	//if nick is already the same
+	if (client.nick() == newNick)
+		return ;
 
 	// Nick in use by someone else?
 	ClientsMapNick::iterator it = _clients_by_nick.find(newNick);
@@ -75,8 +96,58 @@ void  Server::cmdUSER( Client& client, const Command& cmd){
 
 	client.setUser(cmd.params[0]);
 	client.tryCompleteRegistration();
+}
+
+// ------------------------------------------------------------- command PRIVMSG
+void	Server::cmdPRIVMSG( Client& sender, const Command& cmd){
+	// in this case client == sender
+	if (cmd.params.empty()){
+		sendError(sender, 411, ":No recipent given (PRIVMSG)");
+		return;
+	}
+	if	(cmd.params.size() < 2 || cmd.params[1].empty()){
+		sendError(sender, 412, ":No text to send");
+		return;
 	}
 
+	const std::string& target	= cmd.params[0];
+	const std::string& text		= cmd.params[1];
+
+	//build the prefix part once
+	const std::string prefix = ":" + sender.nick() + "!" + sender.user() + "@localhost ";
+
+	//channel message
+	if (!target.empty() && target[0] == '#'){
+		Channel* ch = getChannel(target);
+		if (!ch){
+			sendError(sender, 403, target + " :No such channel");
+			return;
+		}
+
+		if (!ch->hasMember(&sender)){
+			sendError(sender, 404, target + " :Cannot send to channel");
+			return ;
+		}
+
+		const std::string out = prefix + "PRIVMSG " + target + " :" + text;
+		ch->broadcast(out, &sender); // broadcast to all memebers except sender
+		return ;
+	}
+
+
+	// Direct message (nick)
+	Client *dst = getClientByNick(target);
+	if (!dst){
+		sendError(sender, 401, target + " :No such nick/channel");
+		return ;
+	}
+
+	const std::string out = prefix + "PRIVMSG " + target + " :" + text;
+	dst->queue(out);
+
+	//TEMP FOR DEBUGGING
+	std::cerr << "PRIVMSG target=[" << target << "] map_size=" << _clients_by_nick.size() << "\n";
+}
 //TODO------------currently not used anywhere
 
 // Optionally queue something back (usually not necessary)
@@ -135,6 +206,40 @@ Server::~Server(){
 	}
 	close(_listen_socket_fd);
 }
+
+// ------------------------------------- GETTERS --------------------------------
+Client*	Server::getClientByFd(	int	fd	){
+	ClientsMapFd::iterator it = _clients_by_fd.find(fd);
+	if (it == _clients_by_fd.end())
+		return nullptr;
+	return it->second;
+}
+
+Client* Server::getClientByNick(const std::string& nick){
+	ClientsMapNick::iterator it = _clients_by_nick.find(nick);
+	if (it == _clients_by_nick.end())
+		return nullptr;
+	return it->second;
+}
+
+Channel* Server::getChannel(const std::string& name){
+	ChannelMap::iterator it = _channels.find(name);
+	if (it == _channels.end())
+		return nullptr;
+	return it->second;
+}
+
+Channel& Server::getOrCreateChannel(const std::string& name){
+	ChannelMap::iterator it = _channels.find(name);
+	if (it != _channels.end())
+		return *(it->second);
+
+	Channel* ch = new Channel(name);
+	_channels[name] = ch;
+	return *ch;
+}
+
+
 // -------------------------- SERVER LOGIC -------------------------
 
 void Server::run(){
@@ -386,7 +491,6 @@ void Server::sendError( Client& client, int code, const std::string& text  ){
 // ------------------------------------------------------------- command handler
 void Server::handleCommand( Client& client, const Command& cmd ){
 
-
 	// ------------------------------------------------------------ for registration
 	if (  cmd.name == "PING"  ){
 		// token is usually in params[0]
@@ -397,27 +501,29 @@ void Server::handleCommand( Client& client, const Command& cmd ){
 		return;
 	}
 
-	if (  cmd.name == "CAP" && !client.isWelcomed()){
+	//if (  cmd.name == "CAP" && !client.isWelcomed()){
+	if (  cmd.name == "CAP"){
 		return;
 		}
 
-	if (  cmd.name == "PASS" && !client.isWelcomed()){
+	//if (  cmd.name == "PASS" && !client.isWelcomed()){
+	if (  cmd.name == "PASS"){
 		cmdPASS       (client, cmd  );
 		return;
 	}
 
-	if (  cmd.name == "NICK" && !client.isWelcomed()){
+	//if (  cmd.name == "NICK" && !client.isWelcomed()){
+	if (  cmd.name == "NICK"){
 		cmdNICK       ( client, cmd );
 		return;
 	}
 
-	if (  cmd.name == "USER" && !client.isWelcomed()){
+	//if (  cmd.name == "USER" && !client.isWelcomed()){
+	if (  cmd.name == "USER"){
 		cmdUSER       ( client, cmd );
-		if (client.isRegistered()){
-			if (!client.isWelcomed()){
-				maybeWelcome  ( client      );
-				client.setWelcomed();
-			}
+		if (client.isRegistered() && !client.isWelcomed()){
+			maybeWelcome  ( client      );
+			client.setWelcomed();
 		}
 		return;
 	}
@@ -433,8 +539,13 @@ void Server::handleCommand( Client& client, const Command& cmd ){
 	//}
 
 	// ---------------------------------------------------------- after registration
+	if (cmd.name == "PRIVMSG"){
+		cmdPRIVMSG(client, cmd);
+		return;
+	}
 
-
+	//IF COMMAND IS INVALID
+	sendError(client, 421, cmd.name + " :Unknown command");
 	// Later: JOIN, PRIVMSG, etc.
 
 }
