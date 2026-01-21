@@ -12,25 +12,27 @@
 
 #pragma once
 
-#include "Server.hpp"
-#include "Client.hpp"
 #include <string>
 #include <unordered_set>
 
 class Channel {
-private:
-	std::string _pass = "";
 public:
-	Channel();
 	std::string name;
-	std::string topic;
+	std::string topic = "";
 	std::unordered_set<int> invites;
 	std::unordered_set<int> ops;
 	std::unordered_set<int> members;
 
+	bool onlyfans = false; 
+
 	int checkPass(std::string pw);
 	int setPass(std::string pw);
-	void Channel::opCmds(Server& s, int fd, std::string& cmd, std::string arg);
+    explicit Channel(const std::string& n) : name(n), topic("") {}
+    Channel() : topic("") {} // IMPORTANT: needed for try_emplace/emplace sometimes
+    // ~Channel();
+private:
+	std::string _pass = "";
+	// void Channel::opCmds(Server& s, int fd, std::string& cmd, std::string arg);
 };
 
 
@@ -57,3 +59,4 @@ public:
 // 		std::unordered_set<Client*>   _members;
 // 		std::unordered_set<Client*>   _operators;
 // };
+

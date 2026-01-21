@@ -1,4 +1,5 @@
 #include "Server.hpp"
+#include "Channel.hpp"
 
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -8,6 +9,12 @@
 #include <cerrno>
 
 // ------------------------------------------------------------ command handlers
+
+std::string Server::pr(Client& c) {
+	std::string s;
+	s = c.nick() + "!" + c.nick() + "@" + pref + " ";
+	return s;
+}
 
 // ---------------------------------------------------------------- command PASS
 void  Server::cmdPASS ( Client& client, const Command& cmd ){
@@ -28,6 +35,58 @@ void  Server::cmdPASS ( Client& client, const Command& cmd ){
 		sendError( client, 464, ":Password incorrect");
 	}
 }
+
+void Server::cmdJOIN( Client& c, const Command& cmd ) {
+	if (  cmd.params.empty()  ) {
+		sendError(c, 461, "JOIN :Not enough parameters");
+		return;
+	}
+	const std::string& name = cmd.params[0];
+
+	auto [it, created] = _channels.try_emplace(name, name); // calls Channel(name)
+    Channel& ch = it->second;
+
+	if (ch.onlyfans) {
+		sendError(c, 489, "JOIN :Invite only pesent");
+		return;
+	}
+	ch.members.insert(c.fd());
+	if (created)
+        ch.ops.insert(c.fd());
+
+	std::string s = pr(c) + "JOIN " + ch.name + "\r\n";
+	c.queue(s);
+
+	std::cout << "Nimet lisatty: " << ch.members.size() << "\n";
+
+}
+
+
+
+void Server::cmdTOPIC( Client& c, const Command& cmd ) {
+	if (!_channels.contains(cmd.params[0])) {
+		sendError(c, 401, "TOPIC :No such channel");
+		return;
+	}
+	Channel& ch = _channels.at(cmd.params[0]);
+	if (cmd.params.size() == 1) {
+
+		if (ch.topic.empty()) {
+			c._in += pref + "331" + c.nick() + ch.name + ":No topic set\r\n";
+			return;
+		}
+		else {
+			c._in += pref + "332 " + c.nick() + " " + ch.name + " " + ch.topic + "\r\n";
+			return;		
+		}
+	}
+}
+
+// void Server::cmdKICK( Client& c, const Command& cmd ) {
+
+
+// }
+
 
 // ---------------------------------------------------------------- command NICK
 void Server::cmdNICK(Client& client, const Command& cmd){
@@ -298,6 +357,7 @@ void Server::run(){
 				//4.  This is how you handle partial receives correctly.
 
 				client->inbuf().append( buf, n );
+				std::cout << "Raw from irssi: " << client->_in << "\n";
 
 				std::string line;
 				while ( client->popLine(  line  ) ) {
@@ -312,6 +372,8 @@ void Server::run(){
 						break;
 					}
 					handleCommand(*client, cmd);
+					// handleEverything(*this, client, line);
+
 				}
 			}
 			// -------------------------------- QUIT CLIENT --------------------------------
@@ -386,7 +448,7 @@ void Server::sendError( Client& client, int code, const std::string& text  ){
 // ------------------------------------------------------------- command handler
 void Server::handleCommand( Client& client, const Command& cmd ){
 
-
+	std::cout << "Handle command called.. \n";
 	// ------------------------------------------------------------ for registration
 	if (  cmd.name == "PING"  ){
 		// token is usually in params[0]
@@ -427,6 +489,15 @@ void Server::handleCommand( Client& client, const Command& cmd ){
 		sendError(client, 451, ":You have not registered");
 		return;
 	}
+	if ( cmd.name == "JOIN") {
+		cmdJOIN ( client, cmd );
+		std::cout << "JOIN called.. \n";
+		return;
+	}
+	// if ( cmd.name == "KICK" ) {
+	// 	cmdKICK( Client& c, const Command& cmd );
+	// 	return;
+	// }
 	//else{
 	//	sendError(client, 421, cmd.name + " :Unknown command");
 	//	return;
