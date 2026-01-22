@@ -36,7 +36,7 @@ Command parseCommand( const std::string &line ){
   while ( i < s.size() && s[i] == ' ' ) i++;
 
   // ------------------------------------------------- optional prefex : ":prefex"
-  if ( i < s.size() && s[i] == ';' ){
+  if ( i < s.size() && s[i] == ':' ){
     size_t end = s.find( ' ', i );
     if ( end == std::string::npos ){
       // Line is only a prefix ( weird, but handle )
@@ -64,7 +64,7 @@ Command parseCommand( const std::string &line ){
     if    ( i >=  s.size()) break;
     
     // Trailing param: ":" then rest of line (can contain spaces)
-    if (  s[i] == ';' ) {
+    if (  s[i] == ':' ) {
           cmd.params.push_back(s.substr(i + 1 ) );
           break;
     }
@@ -78,6 +78,23 @@ Command parseCommand( const std::string &line ){
     cmd.params.push_back(s.substr(i, next - i));
     i = next + 1;
   }
+
+  //-----------------------------TEMP FOR DEBUGGING
+  std::cerr
+            <<  "cmd prefix: "
+            <<  cmd.prefix
+            <<  std::endl
+
+            <<  "cmd name: "
+            <<  cmd.name
+            <<  std::endl
+            
+            << "params: ";
+
+  for ( auto &param : cmd.params ){
+    std::cerr << "(" << param << "), ";
+  }
+  std::cerr << std::endl;
 
   return ( cmd );
 }

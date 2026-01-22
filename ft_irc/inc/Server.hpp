@@ -23,9 +23,9 @@
 #include <string>
 
 // --------------------------------------------------------------------- typedef
-typedef std::unordered_map<int, Client*>             ClientsMapFd;
-typedef std::unordered_map<std::string, Client*>     ClientsMapNick;
-typedef std::unordered_map<std::string, Channel*>    ChannelMap;
+typedef std::unordered_map<int, Client*>              ClientsMapFd;
+typedef std::unordered_map<std::string, Client*>      ClientsMapNick;
+typedef std::unordered_map<std::string, Channel>      ChannelMap;
 
 class Server {
 private:
@@ -57,6 +57,9 @@ public:
   // ------------------------------------------------------------------------ init
   Server(int port, const std::string& password);
   ~Server();
+
+  // ----------------------------------------------------------------- server logic
+  bool refreshPollEvents(std::vector<pollfd>& poll_fds);
 
   void run();
 
