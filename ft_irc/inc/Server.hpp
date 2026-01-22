@@ -78,6 +78,7 @@ public:
 
   // ----------------------------------------------------------------- server logic
   bool refreshPollEvents(std::vector<pollfd>& poll_fds);
+  void broadcast(Channel& ch, std::string msg, const Client* c = 0 );
 
   void run();
 

@@ -14,6 +14,7 @@
 
 #include <string>
 #include <unordered_set>
+#include "Client.hpp"
 
 class Channel {
 public:
@@ -23,7 +24,7 @@ public:
 	std::unordered_set<int> ops;
 	std::unordered_set<int> members;
 
-	bool onlyfans = false; 
+	bool onlyfans = false;
 
 	int checkPass(std::string pw);
 	int setPass(std::string pw);

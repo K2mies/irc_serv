@@ -98,6 +98,14 @@ void Server::cmdTOPIC( Client& c, const Command& cmd ) {
 		}
 	}
 }
+void Server::broadcast(Channel& ch, std::string msg, const Client* c) {
+	for (auto& m : ch.members) {
+		Client* cl = getClientByFd(m);
+		if (c && cl->fd() == c->fd())
+			continue;
+		cl->_in += msg;
+	}
+}
 
 // void Server::cmdKICK( Client& c, const Command& cmd ) {
 
@@ -185,45 +193,35 @@ void	Server::cmdPRIVMSG( Client& sender, const Command& cmd){
 		sendError(sender, 412, ":No text to send");
 		return;
 	}
-
-	const std::string& target	= cmd.params[0];
-	const std::string& text		= cmd.params[1];
-
-	//build the prefix part once
+	const std::string& target = cmd.params[0];
+	const std::string& text	= cmd.params[1];
+	if (!_channels.contains(target)) {
+		sendError(sender, 403, target + " :No such channel");
+		return;
+	}
+	Channel& ch = _channels.at(target);
+	if (!ch.members.contains(sender.fd())){
+		sendError(sender, 404, target + " :Cannot send to channel"); // Do right error...
+		return ;
+	}
 	const std::string prefix = ":" + sender.nick() + "!" + sender.user() + "@ircserv ";
-
-	//channel message
-	if (!target.empty() && target[0] == '#'){
-		Channel* ch = getChannel(target);
-		if (!ch){
-			sendError(sender, 403, target + " :No such channel");
-			return;
-		}
-
-		if (!ch->hasMember(&sender)){
-			sendError(sender, 404, target + " :Cannot send to channel");
-			return ;
-		}
-
-		const std::string out = prefix + "PRIVMSG " + target + " :" + text;
-		ch->broadcast(out, &sender); // broadcast to all memebers except sender
-		return ;
-	}
-
-
-	// Direct message (nick)
-	Client *dst = getClientByNick(target);
-	if (!dst){
-		sendError(sender, 401, target + " :No such nick/channel");
-		return ;
-	}
-
 	const std::string out = prefix + "PRIVMSG " + target + " :" + text;
-	dst->queue(out);
+	broadcast(ch, out);
+	// // Direct message (nick)
+	// Client *dst = getClientByNick(target);
+	// if (!dst){
+	// 	sendError(sender, 401, target + " :No such nick/channel");
+	// 	return ;
+	// }
 
-	//TEMP FOR DEBUGGING
-	std::cerr << "PRIVMSG target=[" << target << "] map_size=" << _clients_by_nick.size() << "\n";
+	// const std::string out = prefix + "PRIVMSG " + target + " :" + text;
+	// dst->queue(out);
+
+	// //TEMP FOR DEBUGGING
+	// std::cerr << "PRIVMSG target=[" << target << "] map_size=" << _clients_by_nick.size() << "\n";
 }
+
+
 //TODO------------currently not used anywhere
 
 // Optionally queue something back (usually not necessary)

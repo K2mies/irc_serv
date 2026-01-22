@@ -33,12 +33,11 @@ OBJ_DIR		:=	./obj
 # ---------------------------------------------------------------------------- #
 SRC				:=	$(SRC_DIR)/main.cpp					\
 							$(SRC_DIR)/Server.cpp		\
-							$(SRC_DIR)/Channel.cpp		\
 							$(SRC_DIR)/Client.cpp		\
 							$(SRC_DIR)/Command.cpp		\
-							$(SRC_DIR)/Signals.cpp
+							$(SRC_DIR)/Signals.cpp       \
+							#$(SRC_DIR)/Channel.cpp			
 
-							#$(SRC_DIR)/Channel.cpp			\
 
 							#$(SRC_DIR)/Clientl.cpp			\
 							#$(SRC_DIR)/Command.cpp			
