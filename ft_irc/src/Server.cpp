@@ -114,7 +114,7 @@ void	Server::cmdPRIVMSG( Client& sender, const Command& cmd){
 	const std::string& text		= cmd.params[1];
 
 	//build the prefix part once
-	const std::string prefix = ":" + sender.nick() + "!" + sender.user() + "@localhost ";
+	const std::string prefix = ":" + sender.nick() + "!" + sender.user() + "@ircserv ";
 
 	//channel message
 	if (!target.empty() && target[0] == '#'){
@@ -226,21 +226,42 @@ Channel* Server::getChannel(const std::string& name){
 	ChannelMap::iterator it = _channels.find(name);
 	if (it == _channels.end())
 		return nullptr;
-	return it->second;
+	return &it->second;
 }
 
 Channel& Server::getOrCreateChannel(const std::string& name){
 	ChannelMap::iterator it = _channels.find(name);
 	if (it != _channels.end())
-		return *(it->second);
+		return (it->second);
 
-	Channel* ch = new Channel(name);
-	_channels[name] = ch;
-	return *ch;
+	Channel	ch(name);
+	_channels.insert({name, ch});
+	it = _channels.find(name);
+	return it->second;
 }
 
 
 // -------------------------- SERVER LOGIC -------------------------
+bool	Server::refreshPollEvents(std::vector<pollfd>& poll_fds){
+	bool any_pending = false;
+
+	for (size_t j = 1; j < poll_fds.size(); ++j){
+		ClientsMapFd::iterator it = _clients_by_fd.find(poll_fds[j].fd);
+		if (it == _clients_by_fd.end())
+			continue;
+
+		Client* c = it->second;
+		if (c->hasPendingOutput()){
+			poll_fds[j].events = POLLIN | POLLOUT;
+			any_pending = true;
+		}
+		else	{
+			poll_fds[j].events = POLLIN;
+		}
+	}
+	return any_pending;;
+}
+
 
 void Server::run(){
 	/* Create listening socket */
@@ -303,7 +324,21 @@ void Server::run(){
 			3. -1 indicates "wait indefinitely"
 		When poll() returns, it has filled in revents for each entry
 		describing what happened. */
-		if (poll(poll_fds.data(), poll_fds.size(), -1) < 0){
+
+		//if (poll(poll_fds.data(), poll_fds.size(), -1) < 0){
+		//	if (!check_signals())
+		//		break;
+		//	throw std::runtime_error("poll failed");
+		//}
+
+		// new version that should not stall
+		// NEW: ensure POLLOUT is enabled for anyone with queued output
+		bool any_pending = refreshPollEvents(poll_fds);
+
+		// NEW: if we have pending output, don't sleep in poll()
+		int	timeout_ms = any_pending ? 0 : -1;
+
+		if (poll(poll_fds.data(), poll_fds.size(), timeout_ms) < 0){
 			if (!check_signals())
 				break;
 			throw std::runtime_error("poll failed");

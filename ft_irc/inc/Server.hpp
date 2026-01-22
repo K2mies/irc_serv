@@ -58,6 +58,9 @@ public:
   Server(int port, const std::string& password);
   ~Server();
 
+  // ----------------------------------------------------------------- server logic
+  bool refreshPollEvents(std::vector<pollfd>& poll_fds);
+
   void run();
 
   // --------------------------------------------------------------------- getters

@@ -23,6 +23,17 @@ class Channel
   public:
     explicit Channel( const std::string& name );
 
+    Channel(const Channel& other){*this = other;};
+
+    Channel& operator=(const Channel& other){
+      if (this == &other)
+        return(*this);
+      else{
+        *this = other;
+        return (*this);
+      }
+    };
+
     const std::string& name() const;
 
     bool  hasMember(  const Client* client ) const;

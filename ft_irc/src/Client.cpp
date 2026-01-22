@@ -130,12 +130,15 @@ bool  Client::popLine(  std::string &line ){
  */
 void Client::queue( const std::string& msg  ){
   _out += msg;
+  _out += "\r\n";
 
-  if (msg.size() < 2 || 
-      msg.substr(msg.size() - 2) != "\r\n"){
+  //if (msg.size() < 2 || 
+  //    msg.substr(msg.size() - 2) != "\r\n"){
 
-      _out += "\r\n";
-  }
+  //    _out += "\r\n";
+  //}
+  //TEMP DEBUG
+  std::cerr << "_out queued: " << _out << std::endl;
 }
 
 /*
