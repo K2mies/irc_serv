@@ -66,10 +66,10 @@ void Server::cmdJOIN( Client& c, const Command& cmd ) {
 	c.queue(s);
 	s = pref + "353 " + c.nick() + " = " + ch.name + " :";
 	for (auto& fd : ch.members) {
-    	auto it = _clients_by_fd.find(fd);
-    	if (it == _clients_by_fd.end() || it->second == nullptr)
-    	    continue;
-    	Client* c = it->second;
+		auto it = _clients_by_fd.find(fd);
+		if (it == _clients_by_fd.end() || it->second == nullptr)
+			continue;
+		Client* c = it->second;
 		if (ch.ops.contains(c->fd()))
 			s += "@";
 		s += c->nick() + " ";
@@ -89,23 +89,32 @@ void Server::cmdTOPIC( Client& c, const Command& cmd ) {
 	if (cmd.params.size() == 1) {
 
 		if (ch.topic.empty()) {
-			c._in += pref + "331" + c.nick() + ch.name + ":No topic set\r\n";
+			c.queue(pref + "331" + c.nick() + ch.name + ":No topic set\r\n");
 			return;
 		}
 		else {
-			c._in += pref + "332 " + c.nick() + " " + ch.name + " " + ch.topic + "\r\n";
+			c.queue(pref + "332 " + c.nick() + " " + ch.name + " " + ch.topic + "\r\n");
 			return;	
 		}
 	}
 }
+
 void Server::broadcast(Channel& ch, std::string msg, const Client* c) {
-	for (auto& m : ch.members) {
-		Client* cl = getClientByFd(m);
-		if (c && cl->fd() == c->fd())
+	for (auto it = ch.members.begin(); it != ch.members.end(); ) {
+		Client* cl = getClientByFd(*it);
+		if (!cl) {
+			it = ch.members.erase(it); // CLEAN DEAD FD
 			continue;
-		cl->_in += msg;
+		}
+		if (c && cl->fd() == c->fd()) {
+			++it;
+			continue;
+		}
+		cl->queue(msg);
+		++it;
 	}
 }
+
 
 // void Server::cmdKICK( Client& c, const Command& cmd ) {
 
@@ -195,31 +204,66 @@ void	Server::cmdPRIVMSG( Client& sender, const Command& cmd){
 	}
 	const std::string& target = cmd.params[0];
 	const std::string& text	= cmd.params[1];
-	if (!_channels.contains(target)) {
+
+	//build the prefix part once
+	const std::string prefix = ":" + sender.nick() + "!" + sender.user() + "@ircserv ";
+
+	//channel message
+	if (!target.empty() && target[0] == '#'){
+		Channel* ch = getChannel(target);
+		if (!ch){
+			sendError(sender, 403, target + " :No such channel");
+			return;
+		}
+
+		if (!_channels.contains(target)) {
 		sendError(sender, 403, target + " :No such channel");
 		return;
+		}
+
+		const std::string prefix = ":" + sender.nick() + "!" + sender.user() + "@ircserv ";
+		const std::string out = prefix + "PRIVMSG " + target + " :" + text + "\r\n";
+		broadcast(*ch, out, &sender);
+		return;
 	}
-	Channel& ch = _channels.at(target);
-	if (!ch.members.contains(sender.fd())){
-		sendError(sender, 404, target + " :Cannot send to channel"); // Do right error...
+
+	// // Direct message (nick)
+	Client *dst = getClientByNick(target);
+	if (!dst){
+		sendError(sender, 401, target + " :No such nick/channel");
 		return ;
 	}
-	const std::string prefix = ":" + sender.nick() + "!" + sender.user() + "@ircserv ";
-	const std::string out = prefix + "PRIVMSG " + target + " :" + text;
-	broadcast(ch, out);
-	// // Direct message (nick)
-	// Client *dst = getClientByNick(target);
-	// if (!dst){
-	// 	sendError(sender, 401, target + " :No such nick/channel");
-	// 	return ;
-	// }
 
-	// const std::string out = prefix + "PRIVMSG " + target + " :" + text;
-	// dst->queue(out);
+	const std::string out = prefix + "PRIVMSG " + target + " :" + text + "\r\n";
+	dst->queue(out);
 
 	// //TEMP FOR DEBUGGING
 	// std::cerr << "PRIVMSG target=[" << target << "] map_size=" << _clients_by_nick.size() << "\n";
 }
+
+void Server::cmdMODE(Client& c, const Command& cmd) {
+	if (cmd.params.empty()) {
+		sendError(c, 461, "MODE :Not enough parameters");
+		return;
+	}
+
+	const std::string& target = cmd.params[0];
+
+	// MODE <nick>
+	if (target == c.nick()) {
+		// Query or set own modes → just say "+i"
+		sendNumeric(c, 221, "+i");
+		return;
+	}
+
+	// MODE #channel
+	if (!target.empty() && target[0] == '#') {
+		return;
+	}
+
+	sendError(c, 502, ":Cannot change mode for other users");
+}
+
 
 
 //TODO------------currently not used anywhere
@@ -254,6 +298,9 @@ void  Server::disconnectClient(int fd, std::vector<pollfd>& poll_fds, size_t& i)
 			_clients_by_nick.erase(nit);
 	}
 
+	const char* msg = "ERROR :Closing Link\r\n";
+	send(fd, msg, strlen(msg), MSG_NOSIGNAL);
+	shutdown(fd, SHUT_RDWR);
 	// (Later) remove from channels, broadcast QUIT, etc.
 
 	close(fd);
@@ -263,7 +310,7 @@ void  Server::disconnectClient(int fd, std::vector<pollfd>& poll_fds, size_t& i)
 	//remove from poll list
 	poll_fds.erase(poll_fds.begin() + i);
 	--i;
-	}
+}
 
 // -------------------------------------- INIT ----------------------------------
 Server::Server(int port, const std::string& password)
@@ -650,14 +697,20 @@ void Server::handleCommand( Client& client, const Command& cmd ){
 		std::cout << "JOIN called.. \n";
 		return;
 	}
+
+	if (cmd.name == "MODE") {
+		cmdMODE(client, cmd);
+		return;
+	}
+
 	// if ( cmd.name == "KICK" ) {
 	// 	cmdKICK( Client& c, const Command& cmd );
 	// 	return;
 	// }
-	//else{
-	//	sendError(client, 421, cmd.name + " :Unknown command");
-	//	return;
-	//}
+	// else{
+	// 	sendError(client, 421, cmd.name + " :Unknown command");
+	// 	return;
+	// }
 
 	// ---------------------------------------------------------- after registration
 	if (cmd.name == "PRIVMSG"){
