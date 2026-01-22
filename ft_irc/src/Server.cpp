@@ -12,7 +12,7 @@
 
 std::string Server::pr(Client& c) {
 	std::string s;
-	s = c.nick() + "!" + c.nick() + "@" + pref + " ";
+	s = c.nick() + "! " + c.nick() + "@ircserv" + " ";
 	return s;
 }
 
@@ -42,26 +42,43 @@ void Server::cmdJOIN( Client& c, const Command& cmd ) {
 		return;
 	}
 	const std::string& name = cmd.params[0];
-
-	auto [it, created] = _channels.try_emplace(name, name); // calls Channel(name)
-    Channel& ch = it->second;
-
-	if (ch.onlyfans) {
-		sendError(c, 489, "JOIN :Invite only pesent");
-		return;
+	if (_channels.contains(name)) {
+		Channel& ch = _channels.at(name);
+		if (ch.onlyfans && !ch.invites.contains(c.fd())) {
+			sendError(c, 489, "JOIN :Invite only peasant");
+			return;
+		}
+		else
+			ch.members.insert(c.fd());
 	}
-	ch.members.insert(c.fd());
-	if (created)
-        ch.ops.insert(c.fd());
-
+	else {
+		auto [it, created] = _channels.try_emplace(name, name); // calls Channel(name)
+		Channel& ch = it->second;
+		if (created) {
+			ch.members.insert(c.fd());
+			ch.ops.insert(c.fd());
+		}
+	}
+	Channel& ch = _channels.at(name);
 	std::string s = pr(c) + "JOIN " + ch.name + "\r\n";
 	c.queue(s);
-
-	std::cout << "Nimet lisatty: " << ch.members.size() << "\n";
-
+	s = pref + "332 " + c.nick() + " " + ch.name + " :Welcome to " + ch.name + "\r\n";
+	c.queue(s);
+	s = pref + "353 " + c.nick() + " = " + ch.name + " :";
+	for (auto& fd : ch.members) {
+    	auto it = _clients_by_fd.find(fd);
+    	if (it == _clients_by_fd.end() || it->second == nullptr)
+    	    continue;
+    	Client* c = it->second;
+		if (ch.ops.contains(c->fd()))
+			s += "@";
+		s += c->nick() + " ";
+	}
+	s += "\r\n";
+	c.queue(s);
+	s = pref + "366 " + c.nick() + " " + ch.name + " End of /NAMES list\r\n";
+	c.queue(s);
 }
-
-
 
 void Server::cmdTOPIC( Client& c, const Command& cmd ) {
 	if (!_channels.contains(cmd.params[0])) {
@@ -77,7 +94,7 @@ void Server::cmdTOPIC( Client& c, const Command& cmd ) {
 		}
 		else {
 			c._in += pref + "332 " + c.nick() + " " + ch.name + " " + ch.topic + "\r\n";
-			return;		
+			return;	
 		}
 	}
 }

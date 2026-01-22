@@ -63,7 +63,7 @@ private:
   void  cmdQUIT     ( Client& client, const Command& cmd );
   void  cmdPRIVMSG  ( Client& client, const Command& cmd );
   void  cmdMODE     ( Client& client, const Command& cmd );
-  void  cmdTOPIC    ( Client& c, const Command& cmd );
+  void  cmdTOPIC    ( Client& client, const Command& cmd );
 //   void  cmdKICK     ( Client& c, const Command& cmd );
 
   // ------------------------------------------------------------ connection helpers
