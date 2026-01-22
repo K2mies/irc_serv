@@ -79,5 +79,22 @@ Command parseCommand( const std::string &line ){
     i = next + 1;
   }
 
+  //-----------------------------TEMP FOR DEBUGGING
+  std::cerr
+            <<  "cmd prefix: "
+            <<  cmd.prefix
+            <<  std::endl
+
+            <<  "cmd name: "
+            <<  cmd.name
+            <<  std::endl
+            
+            << "params: ";
+
+  for ( auto &param : cmd.params ){
+    std::cerr << "(" << param << "), ";
+  }
+  std::cerr << std::endl;
+
   return ( cmd );
 }
