@@ -44,38 +44,45 @@ void Server::cmdJOIN( Client& client, const Command& cmd ) {
 	const std::string& name = cmd.params[0];
 	if (_channels.contains(name)) {
 		Channel& ch = _channels.at(name);
-		if (ch.invite_only){
-			if (!ch.invites.contains(client.fd())){
-				sendError(client, 473, name + " :Cannot join channel (+i)");
-				return ;
-			}
-
-			//consume invite on success:
-			ch.invites.erase(client.fd());
+		if (ch.invite_only && !ch.invites.contains(client.fd())) {
+			std::string	err = pref + "475 " + client.nick() + " " + ch.name + " :Cannot join channel (+k)";
+			client.queue(err);
+			sendError(client, 489, "JOIN :invite only peasant");
+			return;
 		}
-
-		//now safe to join
-		ch.members.insert(client.fd);
-
-	//	if (ch.invite_only && !ch.invites.contains(client.fd())) {
-	//		sendError(client, 489, "JOIN :Invite only peasant");
-	//		return;
-	//	}
-	//	else
-	//		ch.members.insert(client.fd());
+		else if (ch.limit && ch.members.size() >= (unsigned long)ch.limit) {
+			sendError(client, 471, "ERR_CHANNELISFULL");
+			return;
+		}
+		if (!ch.key.empty() && cmd.params.size() < 2) {
+			std::string	err = pref + "475 " + client.nick() + " " + ch.name + " :Cannot join channel (+k)";
+			client.queue(err);
+			sendError(client, 461, "JOIN :Not enough parameters");
+			return;
+		}	
+		if (!ch.key.empty() && cmd.params[1] != ch.key) {
+			std::string	err = pref + "475 " + client.nick() + " " + ch.name + " :Cannot join channel (+k)";
+			client.queue(err);
+			sendError(client, 475, "ERR_BADCHANNELKEY");
+			return;			
+		}
+		ch.members.insert(client.fd());
 	}
 	else {
 		auto [it, created] = _channels.try_emplace(name, name); // calls Channel(name)
-		Channel& ch = it->second;
 		if (created) {
+			Channel& ch = it->second;
 			ch.members.insert(client.fd());
 			ch.ops.insert(client.fd());
 		}
 	}
 	Channel& ch = _channels.at(name);
-	std::string out = prefix(client) + "JOIN " + ch.name ;
+	std::string out = prefix(client) + "JOIN " + ch.name;
 	client.queue(out);
-	out = pref + "332 " + client.nick() + " " + ch.name + " :Welcome to " + ch.name;
+	if (ch.topic.empty())
+		out = pref + "331 " + client.nick() + " " + ch.name + " :No topic set!!! " + ch.name;
+	else
+		out = pref + "332 " + client.nick() + " " + ch.name + " " + ch.topic + ch.name;
 	client.queue(out);
 	out = pref + "353 " + client.nick() + " = " + ch.name + " :";
 	for (auto& fd : ch.members) {
@@ -87,11 +94,69 @@ void Server::cmdJOIN( Client& client, const Command& cmd ) {
 			out += "@";
 		out += client->nick() + " ";
 	}
-	//out += "\r\n";
 	client.queue(out);
 	out = pref + "366 " + client.nick() + " " + ch.name + " End of /NAMES list";
 	client.queue(out);
 }
+
+//void Server::cmdJOIN( Client& client, const Command& cmd ) {
+//	if (  cmd.params.empty()  ) {
+//		sendError(client, 461, "JOIN :Not enough parameters");
+//		return;
+//	}
+//	const std::string& name = cmd.params[0];
+//	if (_channels.contains(name)) {
+//		Channel& ch = _channels.at(name);
+//		if (ch.members.contains(client.fd()))
+//			return	;	
+//		if (ch.invite_only){
+//			if (!ch.invites.contains(client.fd())){
+//				sendError(client, 473, name + " :Cannot join channel (+i)");
+//				return ;
+//			}
+//
+//			//consume invite on success:
+//			ch.invites.erase(client.fd());
+//		}
+//
+//		//now safe to join
+//		ch.members.insert(client.fd());
+//
+//	//	if (ch.invite_only && !ch.invites.contains(client.fd())) {
+//	//		sendError(client, 489, "JOIN :Invite only peasant");
+//	//		return;
+//	//	}
+//	//	else
+//	//		ch.members.insert(client.fd());
+//	}
+//	else {
+//		auto [it, created] = _channels.try_emplace(name, name); // calls Channel(name)
+//		Channel& ch = it->second;
+//		if (created) {
+//			ch.members.insert(client.fd());
+//			ch.ops.insert(client.fd());
+//		}
+//	}
+//	Channel& ch = _channels.at(name);
+//	std::string out = prefix(client) + "JOIN :" + ch.name ;
+//	client.queue(out);
+//	out = pref + "332 " + client.nick() + " " + ch.name + " :Welcome to " + ch.name;
+//	client.queue(out);
+//	out = pref + "353 " + client.nick() + " = " + ch.name + " :";
+//	for (auto& fd : ch.members) {
+//		auto it = _clients_by_fd.find(fd);
+//		if (it == _clients_by_fd.end() || it->second == nullptr)
+//			continue;
+//		Client* client = it->second;
+//		if (ch.ops.contains(client->fd()))
+//			out += "@";
+//		out += client->nick() + " ";
+//	}
+//	//out += "\r\n";
+//	client.queue(out);
+//	out = pref + "366 " + client.nick() + " " + ch.name + " :End of /NAMES list";
+//	client.queue(out);
+//}
 
 void Server::cmdTOPIC( Client& client, const Command& cmd ) {
 	if (!_channels.contains(cmd.params[0])) {
@@ -144,15 +209,19 @@ void	Server::cmdINVITE(Client& inviter, const Command& cmd){
 
 	// if invite-only, only ops can invite
 	if (ch->invite_only && !ch->ops.contains(inviter.fd())){
-		sendError(inviter, 482, chanName + " :You're not a channel operator");
+		//sendError(inviter, 482, chanName + " :You're not a channel operator");
+		//sendError(inviter, 341, "");
+
+		sendError(inviter, 341, chanName + " :You're not a channel operator");
+		// technically the wrong numeric but seems to behaive as expected
+		//sendError(inviter, 482, chanName + " :You're not a channel operator");
 		return ;
 	}
 
 	// target already in channel?
-	if (ch.members.contains(target->fd())){
+	if (ch->members.contains(target->fd())){
 		sendError(inviter, 443, nick + " " + chanName + " :is already on channel");
-		return;
-	}
+		return;}
 
 	// record invite
 	ch->invites.insert(target->fd());
@@ -163,7 +232,7 @@ void	Server::cmdINVITE(Client& inviter, const Command& cmd){
 
 	// send INVITE message to target
 	// format: :<inviter> INVITE <target> :<channel>
-	std::string msg = ":" + inviter.nick() + "!" + inviter.user() + "@ircserv " + "INVITE" + nick + " :" + chanName;
+	std::string msg = ":" + inviter.nick() + "!" + inviter.user() + "@ircserv " + "INVITE " + nick + " :" + chanName;
 	target->queue(msg);
 }
 
@@ -367,7 +436,8 @@ void  Server::disconnectClient(int fd, std::vector<pollfd>& poll_fds, size_t& i)
 	}
 
 	const char* msg = "ERROR :Closing Link\r\n";
-	send(fd, msg, strlen(msg), MSG_NOSIGNAL);
+	(void)send(fd, msg, strlen(msg), MSG_NOSIGNAL);
+	//send(fd, msg, strlen(msg), MSG_NOSIGNAL);
 	shutdown(fd, SHUT_RDWR);
 	// (Later) remove from channels, broadcast QUIT, etc.
 
@@ -584,6 +654,14 @@ void Server::run(){
 						break;
 					throw std::runtime_error("listening socket failed in main loop");
 				}
+				// TEMP DEBUG REVENTS
+				std::cerr
+						<< "Disconnecting fd=" 
+						<< poll_fd.fd
+						<< " due to revents=" 
+						<< poll_fd.revents 
+						<< "\n";
+
 				disconnectClient(poll_fd.fd, poll_fds, i);
 				continue;
 			}
@@ -610,6 +688,11 @@ void Server::run(){
 				}
 
 				if (n < 0){
+					// TEMP DEBUG RECV
+					std::cerr 
+							<< "Disconnecting fd=" 
+							<< poll_fd.fd 
+							<< " because recv==0\n";
 					// non-blocking "no data right now" is NOT a disconnect
 					//if (errno != EAGAIN && errno != EWOULDBLOCK){} // ERRNO IS FORBIDDEN IN THIS PROJECT
 					// disconnectClient(poll_fd.fd, poll_fds, i);
@@ -627,7 +710,8 @@ void Server::run(){
 				//4.  This is how you handle partial receives correctly.
 
 				client->inbuf().append( buf, n );
-				std::cout << "Raw from irssi: " << client->_in << "\n";
+				//TEMP DEBUG
+				//std::cout << "Raw from irssi: " << client->_in << "\n";
 
 				std::string line;
 				while ( client->popLine(  line  ) ) {
@@ -671,7 +755,7 @@ void Server::run(){
 				else if (sent < 0){
 				// If it's not a "try again later", treat as disconnect
 				//if (errno != EAGAIN && errno != EWOULDBLOCK){} // ERNNO IS FORBIDDEN
-					disconnectClient(poll_fd.fd, poll_fds, i);
+					//disconnectClient(poll_fd.fd, poll_fds, i);//this might be causing the premature kick when using invite
 					continue;
 				}
 			}
@@ -700,14 +784,19 @@ void Server::run(){
 //}
 
 static std::string pad3(int code){
-	std::string s = std::to_string(code);
-	while (s.size() < 3)
-		s = "0" + s;
-	return s;
+	std::string out = std::to_string(code);
+	while (out.size() < 3)
+		out = "0" + out;
+	return out;
 }
 
 void Server::sendNumeric(  Client& client, int code, const std::string& text){
 	std::string nick = client.nick().empty() ? "*" : client.nick();
+	
+	//TEMP DEBUG FOR NUMERIC
+	std::string line = ":ircserv " + pad3(code) + " " + nick + " " + text;
+	std::cerr << "SENT LINE: [" << line << "]\n";
+
 	client.queue(":ircserv " + pad3(code) + " " + nick + " " + text);
 }
 
@@ -769,6 +858,14 @@ void Server::handleCommand( Client& client, const Command& cmd ){
 	if (cmd.name == "MODE") {
 		cmdMODE(client, cmd);
 		return;
+	}
+
+	if (cmd.name == "PART"){
+		const char* msg = "ERROR :Closing Link\r\n";
+		(void)send(client.fd(), msg, strlen(msg), MSG_NOSIGNAL);
+		//send(fd, msg, strlen(msg), MSG_NOSIGNAL);
+		shutdown(client.fd(), SHUT_RDWR);
+		return ;
 	}
 
 	// if ( cmd.name == "KICK" ) {

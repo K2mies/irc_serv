@@ -19,12 +19,14 @@
 class Channel {
 public:
 	std::string name;
-	std::string topic = "";
+	std::string topic	= "";
+	std::string key		= "";
+	int limit		= 0;
 	std::unordered_set<int> invites;
 	std::unordered_set<int> ops;
 	std::unordered_set<int> members;
 
-	bool invite_only = false;
+	bool invite_only = true;
 
 	int checkPass(std::string pw);
 	int setPass(std::string pw);
