@@ -99,14 +99,14 @@ void Server::cmdTOPIC( Client& c, const Command& cmd ) {
 	}
 }
 
-void Server::broadcast(Channel& ch, std::string msg, const Client* c) {
+void Server::broadcast(Channel& ch, std::string msg, const Client* client) {
 	for (auto it = ch.members.begin(); it != ch.members.end(); ) {
 		Client* cl = getClientByFd(*it);
 		if (!cl) {
 			it = ch.members.erase(it); // CLEAN DEAD FD
 			continue;
 		}
-		if (c && cl->fd() == c->fd()) {
+		if (client && cl->fd() == client->fd()) {
 			++it;
 			continue;
 		}
@@ -217,8 +217,8 @@ void	Server::cmdPRIVMSG( Client& sender, const Command& cmd){
 		}
 
 		if (!_channels.contains(target)) {
-		sendError(sender, 403, target + " :No such channel");
-		return;
+			sendError(sender, 403, target + " :No such channel");
+			return;
 		}
 
 		const std::string prefix = ":" + sender.nick() + "!" + sender.user() + "@ircserv ";
