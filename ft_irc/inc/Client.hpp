@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Client.hpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: rhvidste <rhvidste@student.hive.email.com  +#+  +:+       +#+        */
+/*   By: jforsten <jforsten@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/18 10:56:52 by rhvidste          #+#    #+#             */
-/*   Updated: 2025/12/18 11:05:57 by rhvidste         ###   ########.fr       */
+/*   Updated: 2026/01/20 20:40:25 by jforsten         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -15,11 +15,37 @@
 #include  <string>
 #include  <unordered_set>
 
+// struct Client {
+
+// 	int fd;
+
+// 	std::string nick;
+// 	std::string user;
+
+// 	std::string from;
+// 	std::string to;
+
+// 	std::unordered_set<std::string> joined;
+
+// 	bool          _passOk     = false;
+// 	bool          _hasNick    = false;
+// 	bool          _hasUser    = false;
+// 	bool          _registered = false;
+// 	bool          _welcomed   = false;
+
+// };
+
+
+
+
+
+
+
 // -------------------------------------------------------------------- type defs
 typedef std::unordered_set<std::string> ChannelSet;
 
 class Client {
-private:
+public:
   int           _fd;
 
   std::string   _nick;
@@ -35,12 +61,12 @@ private:
 
   std::string   _in;
   std::string   _out;
-
-public:
+  
+  public:
 
   // ----------------------------------------------------------------- constructor
   explicit  Client(int fd);
-   
+
   // ---------------------------------------------------------------------- getter
   int       fd()    const;
 

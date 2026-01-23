@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Channel.hpp                                        :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: rhvidste <rhvidste@student.hive.email.com  +#+  +:+       +#+        */
+/*   By: jforsten <jforsten@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/18 13:05:44 by rhvidste          #+#    #+#             */
-/*   Updated: 2025/12/18 13:36:56 by rhvidste         ###   ########.fr       */
+/*   Updated: 2026/01/20 20:36:38 by jforsten         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,38 +16,48 @@
 #include <unordered_set>
 #include "Client.hpp"
 
-class Client;
+class Channel {
+public:
+	std::string name;
+	std::string topic = "";
+	std::unordered_set<int> invites;
+	std::unordered_set<int> ops;
+	std::unordered_set<int> members;
 
-class Channel
-{
-  public:
-    explicit Channel( const std::string& name );
+	bool onlyfans = false;
 
-    Channel(const Channel& other){*this = other;};
+	int checkPass(std::string pw);
+	int setPass(std::string pw);
+    explicit Channel(const std::string& n) : name(n), topic("") {}
+    Channel() : topic("") {} // IMPORTANT: needed for try_emplace/emplace sometimes
+    // ~Channel();
+private:
+	std::string _pass = "";
+	// void Channel::opCmds(Server& s, int fd, std::string& cmd, std::string arg);
+};
 
-    Channel& operator=(const Channel& other){
-      if (this == &other)
-        return(*this);
-      else{
-        *this = other;
-        return (*this);
-      }
-    };
 
-    const std::string& name() const;
 
-    bool  hasMember(  const Client* client ) const;
-    void  addMember(        Client* client );
-    void  removeMember(     Client* client );
+// class Channel
+// {
+// 	public:
+// 		explicit Channel( const std::string& name );
 
-    bool  isOperator( const Client* client ) const;
-    void  addOperator(      Client* client );
-    void  removeOperator(   Client* client );
+// 		const std::string& name() const;
 
-    void  broadcast(const std::string& msg, const Client* except = 0); // "except = sender" if set to default(0) will send to everyone
-  
-  private:
-    std::string                   _name;
-    std::unordered_set<Client*>   _members;
-    std::unordered_set<Client*>   _operators;
-}; 
+// 		bool  hasMember(  const Client* c ) const;
+// 		void  addMember(        Client* c );
+// 		void  removeMember(     Client* c );
+
+// 		bool  isOperator( const Client* c ) const;
+// 		void  addOperator(      Client* c );
+// 		void  removeOperator(   Client* c );
+
+// 		void  broadcast(const std::string& msg, const Client* except = 0); // "except = sender" if set to default(0) will send to everyone
+
+// 	private:
+// 		std::string                   _name;
+// 		std::unordered_set<Client*>   _members;
+// 		std::unordered_set<Client*>   _operators;
+// };
+

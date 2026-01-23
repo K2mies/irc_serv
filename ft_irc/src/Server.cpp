@@ -1,4 +1,5 @@
 #include "Server.hpp"
+#include "Channel.hpp"
 
 #include <arpa/inet.h>
 #include <sys/socket.h>
@@ -8,6 +9,12 @@
 #include <cerrno>
 
 // ------------------------------------------------------------ command handlers
+
+std::string Server::pr(Client& c) {
+	std::string s;
+	s = c.nick() + "! " + c.nick() + "@ircserv" + " ";
+	return s;
+}
 
 // ---------------------------------------------------------------- command PASS
 void  Server::cmdPASS ( Client& client, const Command& cmd ){
@@ -28,6 +35,92 @@ void  Server::cmdPASS ( Client& client, const Command& cmd ){
 		sendError( client, 464, ":Password incorrect");
 	}
 }
+
+void Server::cmdJOIN( Client& c, const Command& cmd ) {
+	if (  cmd.params.empty()  ) {
+		sendError(c, 461, "JOIN :Not enough parameters");
+		return;
+	}
+	const std::string& name = cmd.params[0];
+	if (_channels.contains(name)) {
+		Channel& ch = _channels.at(name);
+		if (ch.onlyfans && !ch.invites.contains(c.fd())) {
+			sendError(c, 489, "JOIN :Invite only peasant");
+			return;
+		}
+		else
+			ch.members.insert(c.fd());
+	}
+	else {
+		auto [it, created] = _channels.try_emplace(name, name); // calls Channel(name)
+		Channel& ch = it->second;
+		if (created) {
+			ch.members.insert(c.fd());
+			ch.ops.insert(c.fd());
+		}
+	}
+	Channel& ch = _channels.at(name);
+	std::string s = pr(c) + "JOIN " + ch.name + "\r\n";
+	c.queue(s);
+	s = pref + "332 " + c.nick() + " " + ch.name + " :Welcome to " + ch.name + "\r\n";
+	c.queue(s);
+	s = pref + "353 " + c.nick() + " = " + ch.name + " :";
+	for (auto& fd : ch.members) {
+		auto it = _clients_by_fd.find(fd);
+		if (it == _clients_by_fd.end() || it->second == nullptr)
+			continue;
+		Client* c = it->second;
+		if (ch.ops.contains(c->fd()))
+			s += "@";
+		s += c->nick() + " ";
+	}
+	s += "\r\n";
+	c.queue(s);
+	s = pref + "366 " + c.nick() + " " + ch.name + " End of /NAMES list\r\n";
+	c.queue(s);
+}
+
+void Server::cmdTOPIC( Client& c, const Command& cmd ) {
+	if (!_channels.contains(cmd.params[0])) {
+		sendError(c, 401, "TOPIC :No such channel");
+		return;
+	}
+	Channel& ch = _channels.at(cmd.params[0]);
+	if (cmd.params.size() == 1) {
+
+		if (ch.topic.empty()) {
+			c.queue(pref + "331" + c.nick() + ch.name + ":No topic set\r\n");
+			return;
+		}
+		else {
+			c.queue(pref + "332 " + c.nick() + " " + ch.name + " " + ch.topic + "\r\n");
+			return;	
+		}
+	}
+}
+
+void Server::broadcast(Channel& ch, std::string msg, const Client* client) {
+	for (auto it = ch.members.begin(); it != ch.members.end(); ) {
+		Client* cl = getClientByFd(*it);
+		if (!cl) {
+			it = ch.members.erase(it); // CLEAN DEAD FD
+			continue;
+		}
+		if (client && cl->fd() == client->fd()) {
+			++it;
+			continue;
+		}
+		cl->queue(msg);
+		++it;
+	}
+}
+
+
+// void Server::cmdKICK( Client& c, const Command& cmd ) {
+
+
+// }
+
 
 // ---------------------------------------------------------------- command NICK
 
@@ -109,9 +202,8 @@ void	Server::cmdPRIVMSG( Client& sender, const Command& cmd){
 		sendError(sender, 412, ":No text to send");
 		return;
 	}
-
-	const std::string& target	= cmd.params[0];
-	const std::string& text		= cmd.params[1];
+	const std::string& target = cmd.params[0];
+	const std::string& text	= cmd.params[1];
 
 	//build the prefix part once
 	const std::string prefix = ":" + sender.nick() + "!" + sender.user() + "@ircserv ";
@@ -124,30 +216,56 @@ void	Server::cmdPRIVMSG( Client& sender, const Command& cmd){
 			return;
 		}
 
-		if (!ch->hasMember(&sender)){
-			sendError(sender, 404, target + " :Cannot send to channel");
-			return ;
+		if (!_channels.contains(target)) {
+			sendError(sender, 403, target + " :No such channel");
+			return;
 		}
 
-		const std::string out = prefix + "PRIVMSG " + target + " :" + text;
-		ch->broadcast(out, &sender); // broadcast to all memebers except sender
-		return ;
+		const std::string prefix = ":" + sender.nick() + "!" + sender.user() + "@ircserv ";
+		const std::string out = prefix + "PRIVMSG " + target + " :" + text + "\r\n";
+		broadcast(*ch, out, &sender);
+		return;
 	}
 
-
-	// Direct message (nick)
+	// // Direct message (nick)
 	Client *dst = getClientByNick(target);
 	if (!dst){
 		sendError(sender, 401, target + " :No such nick/channel");
 		return ;
 	}
 
-	const std::string out = prefix + "PRIVMSG " + target + " :" + text;
+	const std::string out = prefix + "PRIVMSG " + target + " :" + text + "\r\n";
 	dst->queue(out);
 
-	//TEMP FOR DEBUGGING
-	std::cerr << "PRIVMSG target=[" << target << "] map_size=" << _clients_by_nick.size() << "\n";
+	// //TEMP FOR DEBUGGING
+	// std::cerr << "PRIVMSG target=[" << target << "] map_size=" << _clients_by_nick.size() << "\n";
 }
+
+void Server::cmdMODE(Client& c, const Command& cmd) {
+	if (cmd.params.empty()) {
+		sendError(c, 461, "MODE :Not enough parameters");
+		return;
+	}
+
+	const std::string& target = cmd.params[0];
+
+	// MODE <nick>
+	if (target == c.nick()) {
+		// Query or set own modes → just say "+i"
+		sendNumeric(c, 221, "+i");
+		return;
+	}
+
+	// MODE #channel
+	if (!target.empty() && target[0] == '#') {
+		return;
+	}
+
+	sendError(c, 502, ":Cannot change mode for other users");
+}
+
+
+
 //TODO------------currently not used anywhere
 
 // Optionally queue something back (usually not necessary)
@@ -180,6 +298,9 @@ void  Server::disconnectClient(int fd, std::vector<pollfd>& poll_fds, size_t& i)
 			_clients_by_nick.erase(nit);
 	}
 
+	const char* msg = "ERROR :Closing Link\r\n";
+	send(fd, msg, strlen(msg), MSG_NOSIGNAL);
+	shutdown(fd, SHUT_RDWR);
 	// (Later) remove from channels, broadcast QUIT, etc.
 
 	close(fd);
@@ -189,7 +310,7 @@ void  Server::disconnectClient(int fd, std::vector<pollfd>& poll_fds, size_t& i)
 	//remove from poll list
 	poll_fds.erase(poll_fds.begin() + i);
 	--i;
-	}
+}
 
 // -------------------------------------- INIT ----------------------------------
 Server::Server(int port, const std::string& password)
@@ -365,14 +486,14 @@ void Server::run(){
 			continue;
 		}
 
-		/* Handling events: accept/read/write 
+		/* Handling events: accept/read/write
 			Check: Did poll say the listening socket is readable?
 				if yes, then a connection is waiting in the kernel's queue.
 			accept() creates a new socket(client_fd) dedicated to that client.
 			set the client socket non_blocking (fcntl)
 			Create a new Client object and store it in the data.
 			Add the client socket into poll_fds so poll can watch it.
-			After this, server is watching: 
+			After this, server is watching:
 				- the listen socket(index 0)
 				- each connected client (index 1..N) */
 		for (size_t i = 1; i < poll_fds.size(); i++){
@@ -406,12 +527,12 @@ void Server::run(){
 				// ------------------- READ --------------------
 				char  buf[4096];
 				ssize_t n = recv(  poll_fd.fd, buf, sizeof(  buf ), 0);
-	
+
 				//Disconnect handling
 				//a.  n == 0 → client closed connection
 				//b.  n < 0 → error
-				//1.  But because you’re non-blocking, n < 0 
-				//    can be “try again later” (EAGAIN). 
+				//1.  But because you’re non-blocking, n < 0
+				//    can be “try again later” (EAGAIN).
 				//    So you’ll refine this later.
 
 				if  ( n == 0  ) {
@@ -438,6 +559,7 @@ void Server::run(){
 				//4.  This is how you handle partial receives correctly.
 
 				client->inbuf().append( buf, n );
+				std::cout << "Raw from irssi: " << client->_in << "\n";
 
 				std::string line;
 				while ( client->popLine(  line  ) ) {
@@ -452,6 +574,8 @@ void Server::run(){
 						break;
 					}
 					handleCommand(*client, cmd);
+					// handleEverything(*this, client, line);
+
 				}
 			}
 			// -------------------------------- QUIT CLIENT --------------------------------
@@ -568,10 +692,25 @@ void Server::handleCommand( Client& client, const Command& cmd ){
 		sendError(client, 451, ":You have not registered");
 		return;
 	}
-	//else{
-	//	sendError(client, 421, cmd.name + " :Unknown command");
-	//	return;
-	//}
+	if ( cmd.name == "JOIN") {
+		cmdJOIN ( client, cmd );
+		std::cout << "JOIN called.. \n";
+		return;
+	}
+
+	if (cmd.name == "MODE") {
+		cmdMODE(client, cmd);
+		return;
+	}
+
+	// if ( cmd.name == "KICK" ) {
+	// 	cmdKICK( Client& c, const Command& cmd );
+	// 	return;
+	// }
+	// else{
+	// 	sendError(client, 421, cmd.name + " :Unknown command");
+	// 	return;
+	// }
 
 	// ---------------------------------------------------------- after registration
 	if (cmd.name == "PRIVMSG"){

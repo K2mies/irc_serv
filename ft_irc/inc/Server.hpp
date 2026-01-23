@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   Server.hpp                                         :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: rhvidste <rhvidste@student.hive.email.com  +#+  +:+       +#+        */
+/*   By: jforsten <jforsten@student.hive.fi>        +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/12/18 10:22:17 by rhvidste          #+#    #+#             */
-/*   Updated: 2025/12/18 11:05:49 by rhvidste         ###   ########.fr       */
+/*   Updated: 2026/01/20 20:48:50 by jforsten         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -22,10 +22,25 @@
 #include <cstdint>
 #include <string>
 
+// class Server {
+// 	private:
+// 		std::string _password;
+// 	public:
+// 		int listen_fd;
+// 		uint32_t port;
+
+// 		std::string pref = ":ircserv ";
+
+// 		std::vector<int> pfds;
+// 		std::vector<int> gtfo;
+// 		std::unordered_map<int, Client> fds;
+// 		std::unordered_map<std::string, Channel> chs;
+// };
+
 // --------------------------------------------------------------------- typedef
-typedef std::unordered_map<int, Client*>              ClientsMapFd;
-typedef std::unordered_map<std::string, Client*>      ClientsMapNick;
-typedef std::unordered_map<std::string, Channel>      ChannelMap;
+typedef std::unordered_map<int, Client*>             ClientsMapFd;
+typedef std::unordered_map<std::string, Client*>     ClientsMapNick;
+typedef std::unordered_map<std::string, Channel>     ChannelMap;
 
 class Server {
 private:
@@ -47,19 +62,23 @@ private:
   void  cmdJOIN     ( Client& client, const Command& cmd );
   void  cmdQUIT     ( Client& client, const Command& cmd );
   void  cmdPRIVMSG  ( Client& client, const Command& cmd );
+  void  cmdMODE     ( Client& client, const Command& cmd );
+  void  cmdTOPIC    ( Client& client, const Command& cmd );
+//   void  cmdKICK     ( Client& c, const Command& cmd );
 
   // ------------------------------------------------------------ connection helpers
   void  disconnectClient(int fd, std::vector<pollfd>& poll_fds, size_t& i);
   void  maybeWelcome(Client& client);
 
 public:
-
+	std::string pref = ":ircserv ";
   // ------------------------------------------------------------------------ init
   Server(int port, const std::string& password);
   ~Server();
 
   // ----------------------------------------------------------------- server logic
   bool refreshPollEvents(std::vector<pollfd>& poll_fds);
+  void broadcast(Channel& ch, std::string msg, const Client* client = 0 );
 
   void run();
 
@@ -67,6 +86,8 @@ public:
   Client  *getClientByFd      ( int fd );
   Client  *getClientByNick    ( const std::string &nick );
   Channel *getChannel         ( const std::string &name );
+  
+  std::string pr(Client& c);
 
   Channel& getOrCreateChannel ( const std::string& name );
   std::string getPass() { return _password; };
