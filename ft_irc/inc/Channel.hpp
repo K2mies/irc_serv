@@ -24,7 +24,7 @@ public:
 	std::unordered_set<int> ops;
 	std::unordered_set<int> members;
 
-	bool onlyfans = false;
+	bool invite_only = false;
 
 	int checkPass(std::string pw);
 	int setPass(std::string pw);

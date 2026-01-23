@@ -64,6 +64,7 @@ private:
   void  cmdPRIVMSG  ( Client& client, const Command& cmd );
   void  cmdMODE     ( Client& client, const Command& cmd );
   void  cmdTOPIC    ( Client& client, const Command& cmd );
+  void	cmdINVITE   ( Client& client, const Command& cmd );
 //   void  cmdKICK     ( Client& c, const Command& cmd );
 
   // ------------------------------------------------------------ connection helpers
@@ -78,7 +79,7 @@ public:
 
   // ----------------------------------------------------------------- server logic
   bool refreshPollEvents(std::vector<pollfd>& poll_fds);
-  void broadcast(Channel& ch, std::string msg, const Client* client = 0 );
+  void broadcast(Channel& ch, std::string msg, const Client* sender = 0 );
 
   void run();
 

@@ -44,12 +44,25 @@ void Server::cmdJOIN( Client& client, const Command& cmd ) {
 	const std::string& name = cmd.params[0];
 	if (_channels.contains(name)) {
 		Channel& ch = _channels.at(name);
-		if (ch.onlyfans && !ch.invites.contains(c.fd())) {
-			sendError(client, 489, "JOIN :Invite only peasant");
-			return;
+		if (ch.invite_only){
+			if (!ch.invites.contains(client.fd())){
+				sendError(client, 473, name + " :Cannot join channel (+i)");
+				return ;
+			}
+
+			//consume invite on success:
+			ch.invites.erase(client.fd());
 		}
-		else
-			ch.members.insert(client.fd());
+
+		//now safe to join
+		ch.members.insert(client.fd);
+
+	//	if (ch.invite_only && !ch.invites.contains(client.fd())) {
+	//		sendError(client, 489, "JOIN :Invite only peasant");
+	//		return;
+	//	}
+	//	else
+	//		ch.members.insert(client.fd());
 	}
 	else {
 		auto [it, created] = _channels.try_emplace(name, name); // calls Channel(name)
@@ -60,9 +73,9 @@ void Server::cmdJOIN( Client& client, const Command& cmd ) {
 		}
 	}
 	Channel& ch = _channels.at(name);
-	std::string out = prefix(client) + "JOIN " + ch.name + "\r\n";
+	std::string out = prefix(client) + "JOIN " + ch.name ;
 	client.queue(out);
-	out = pref + "332 " + client.nick() + " " + ch.name + " :Welcome to " + ch.name + "\r\n";
+	out = pref + "332 " + client.nick() + " " + ch.name + " :Welcome to " + ch.name;
 	client.queue(out);
 	out = pref + "353 " + client.nick() + " = " + ch.name + " :";
 	for (auto& fd : ch.members) {
@@ -74,9 +87,9 @@ void Server::cmdJOIN( Client& client, const Command& cmd ) {
 			out += "@";
 		out += client->nick() + " ";
 	}
-	out += "\r\n";
+	//out += "\r\n";
 	client.queue(out);
-	out = pref + "366 " + client.nick() + " " + ch.name + " End of /NAMES list\r\n";
+	out = pref + "366 " + client.nick() + " " + ch.name + " End of /NAMES list";
 	client.queue(out);
 }
 
@@ -89,14 +102,69 @@ void Server::cmdTOPIC( Client& client, const Command& cmd ) {
 	if (cmd.params.size() == 1) {
 
 		if (ch.topic.empty()) {
-			client.queue(pref + "331" + client.nick() + ch.name + ":No topic set\r\n");
+			client.queue(pref + "331" + client.nick() + ch.name + ":No topic set");
 			return;
 		}
 		else {
-			client.queue(pref + "332 " + client.nick() + " " + ch.name + " " + ch.topic + "\r\n");
+			client.queue(pref + "332 " + client.nick() + " " + ch.name + " " + ch.topic);
 			return;	
 		}
 	}
+}
+
+void	Server::cmdINVITE(Client& inviter, const Command& cmd){
+	// INVITE <nick> <channel>
+	if (cmd.params.size() < 2){
+		sendError(inviter, 461, "INVITE :Not enough parameters");
+		return ;
+	}
+
+	const std::string& nick		= cmd.params[0];
+	const std::string& chanName = cmd.params[1];
+
+	// find target client
+	Client* target = getClientByNick(nick);
+	if (!target){
+		sendError(inviter, 401, nick + " :No such nick/channel");
+		return ;
+	}
+
+	// find Channel
+	Channel* ch = getChannel(chanName);
+	if (!ch){
+		sendError(inviter, 403, chanName + " :No such channel");
+		return ;
+	}
+
+	// inviter must be in channel
+	if (!ch->members.contains(inviter.fd())){
+		sendError(inviter, 442, chanName + " :You're not on that channel");
+		return ;
+	}
+
+	// if invite-only, only ops can invite
+	if (ch->invite_only && !ch->ops.contains(inviter.fd())){
+		sendError(inviter, 482, chanName + " :You're not a channel operator");
+		return ;
+	}
+
+	// target already in channel?
+	if (ch.members.contains(target->fd())){
+		sendError(inviter, 443, nick + " " + chanName + " :is already on channel");
+		return;
+	}
+
+	// record invite
+	ch->invites.insert(target->fd());
+
+	// numeric back to inviter: 341 RPL_INVITING
+	// format	:server 341 <inviteNick> <targetNick> <channel>
+	sendNumeric(inviter, 341, nick + " " + chanName);
+
+	// send INVITE message to target
+	// format: :<inviter> INVITE <target> :<channel>
+	std::string msg = ":" + inviter.nick() + "!" + inviter.user() + "@ircserv " + "INVITE" + nick + " :" + chanName;
+	target->queue(msg);
 }
 
 void Server::broadcast(Channel& ch, std::string msg, const Client* sender) {
@@ -715,6 +783,11 @@ void Server::handleCommand( Client& client, const Command& cmd ){
 	// ---------------------------------------------------------- after registration
 	if (cmd.name == "PRIVMSG"){
 		cmdPRIVMSG(client, cmd);
+		return;
+	}
+
+	else if (cmd.name == "INVITE"){
+		cmdINVITE(client, cmd);
 		return;
 	}
 
