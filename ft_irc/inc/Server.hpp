@@ -87,7 +87,7 @@ public:
   Client  *getClientByNick    ( const std::string &nick );
   Channel *getChannel         ( const std::string &name );
   
-  std::string pr(Client& c);
+  std::string prefix(Client& client);
 
   Channel& getOrCreateChannel ( const std::string& name );
   std::string getPass() { return _password; };
