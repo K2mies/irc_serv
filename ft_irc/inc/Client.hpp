@@ -15,32 +15,6 @@
 #include  <string>
 #include  <unordered_set>
 
-// struct Client {
-
-// 	int fd;
-
-// 	std::string nick;
-// 	std::string user;
-
-// 	std::string from;
-// 	std::string to;
-
-// 	std::unordered_set<std::string> joined;
-
-// 	bool          _passOk     = false;
-// 	bool          _hasNick    = false;
-// 	bool          _hasUser    = false;
-// 	bool          _registered = false;
-// 	bool          _welcomed   = false;
-
-// };
-
-
-
-
-
-
-
 // -------------------------------------------------------------------- type defs
 typedef std::unordered_set<std::string> ChannelSet;
 

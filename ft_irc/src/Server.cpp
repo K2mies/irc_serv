@@ -47,7 +47,7 @@ void Server::cmdJOIN( Client& client, const Command& cmd ) {
 		if (ch.invite_only && !ch.invites.contains(client.fd())) {
 			std::string	err = pref + "475 " + client.nick() + " " + ch.name + " :Cannot join channel (+k)";
 			client.queue(err);
-			sendError(client, 489, "JOIN :invite only peasant");
+			sendError(client, 489, "JOIN :invite only [ you are not invited ]");
 			return;
 		}
 		else if (ch.limit && ch.members.size() >= (unsigned long)ch.limit) {
@@ -98,65 +98,6 @@ void Server::cmdJOIN( Client& client, const Command& cmd ) {
 	out = pref + "366 " + client.nick() + " " + ch.name + " End of /NAMES list";
 	client.queue(out);
 }
-
-//void Server::cmdJOIN( Client& client, const Command& cmd ) {
-//	if (  cmd.params.empty()  ) {
-//		sendError(client, 461, "JOIN :Not enough parameters");
-//		return;
-//	}
-//	const std::string& name = cmd.params[0];
-//	if (_channels.contains(name)) {
-//		Channel& ch = _channels.at(name);
-//		if (ch.members.contains(client.fd()))
-//			return	;	
-//		if (ch.invite_only){
-//			if (!ch.invites.contains(client.fd())){
-//				sendError(client, 473, name + " :Cannot join channel (+i)");
-//				return ;
-//			}
-//
-//			//consume invite on success:
-//			ch.invites.erase(client.fd());
-//		}
-//
-//		//now safe to join
-//		ch.members.insert(client.fd());
-//
-//	//	if (ch.invite_only && !ch.invites.contains(client.fd())) {
-//	//		sendError(client, 489, "JOIN :Invite only peasant");
-//	//		return;
-//	//	}
-//	//	else
-//	//		ch.members.insert(client.fd());
-//	}
-//	else {
-//		auto [it, created] = _channels.try_emplace(name, name); // calls Channel(name)
-//		Channel& ch = it->second;
-//		if (created) {
-//			ch.members.insert(client.fd());
-//			ch.ops.insert(client.fd());
-//		}
-//	}
-//	Channel& ch = _channels.at(name);
-//	std::string out = prefix(client) + "JOIN :" + ch.name ;
-//	client.queue(out);
-//	out = pref + "332 " + client.nick() + " " + ch.name + " :Welcome to " + ch.name;
-//	client.queue(out);
-//	out = pref + "353 " + client.nick() + " = " + ch.name + " :";
-//	for (auto& fd : ch.members) {
-//		auto it = _clients_by_fd.find(fd);
-//		if (it == _clients_by_fd.end() || it->second == nullptr)
-//			continue;
-//		Client* client = it->second;
-//		if (ch.ops.contains(client->fd()))
-//			out += "@";
-//		out += client->nick() + " ";
-//	}
-//	//out += "\r\n";
-//	client.queue(out);
-//	out = pref + "366 " + client.nick() + " " + ch.name + " :End of /NAMES list";
-//	client.queue(out);
-//}
 
 void Server::cmdTOPIC( Client& client, const Command& cmd ) {
 	if (!_channels.contains(cmd.params[0])) {
@@ -414,40 +355,73 @@ void Server::cmdMODE(Client& client, const Command& cmd) {
 //close(c.fd());
 
 // ------------------------------------------------------------ connection helpers
-void  Server::disconnectClient(int fd, std::vector<pollfd>& poll_fds, size_t& i){
-	ClientsMapFd::iterator it = _clients_by_fd.find(fd);
+void  Server::disconnectClient(int fd, std::vector<pollfd>& poll_fds){
+	ClientsMapFd::iterator client_fd_it = _clients_by_fd.find(fd);
 	std::cout << "Client disconnected fd="
 						<< fd << "\n";
 
-	if (it == _clients_by_fd.end()){
-		// fd not found; still remove poll entry if you want, but usually shouldn't happen
-		poll_fds.erase(poll_fds.begin() + i );
-		--i;
-		return;
+	if (client_fd_it != _clients_by_fd.end()){
+		Client* client = client_fd_it->second;
+
+		// remove nick mapping if present
+		if (!client->nick().empty()){
+			ClientsMapNick::iterator client_nick_it = _clients_by_nick.find(client->nick());
+			if (client_nick_it != _clients_by_nick.end() && client_nick_it->second == client)
+				_clients_by_nick.erase(client_nick_it);
+		}
+
+		removeClientFromChannels(fd);
+
+		const char* msg = "*** DISCONNECTED from server! ***\r\n";
+		send(fd, msg, strlen(msg), MSG_NOSIGNAL);
+		shutdown(fd, SHUT_RDWR);
+		close(fd);
+
+		delete client;
+		_clients_by_fd.erase(client_fd_it);
 	}
-
-	Client* client = it->second;
-
-	// remove nick mapping if present
-	if (!client->nick().empty()){
-		ClientsMapNick::iterator nit = _clients_by_nick.find(client->nick());
-		if (nit != _clients_by_nick.end() && nit->second == client)
-			_clients_by_nick.erase(nit);
-	}
-
-	const char* msg = "ERROR :Closing Link\r\n";
-	(void)send(fd, msg, strlen(msg), MSG_NOSIGNAL);
-	//send(fd, msg, strlen(msg), MSG_NOSIGNAL);
-	shutdown(fd, SHUT_RDWR);
-	// (Later) remove from channels, broadcast QUIT, etc.
-
-	close(fd);
-	delete client;
-	_clients_by_fd.erase(it);
 
 	//remove from poll list
-	poll_fds.erase(poll_fds.begin() + i);
-	--i;
+	for (auto poll_it = poll_fds.begin(); poll_it != poll_fds.end(); ++poll_it){
+		if (poll_it->fd == fd){
+			poll_fds.erase(poll_it);
+			break;
+		}
+	}
+}
+
+void::Server::signalShutdown(){
+	const char* msg = "ERROR :Server shutdown, you are disconnected!\r\n";
+
+	for (auto& [fd, client] : _clients_by_fd) {
+		send(fd, msg, strlen(msg), MSG_NOSIGNAL);
+		shutdown(fd, SHUT_RDWR);
+		close(fd);
+		delete client;
+	}
+
+	_clients_by_fd.clear();
+	poll_fds.clear();
+
+	if (_listen_socket_fd >= 0) {
+		close(_listen_socket_fd);
+		_listen_socket_fd = -1;
+	}
+}
+
+void::Server::removeClientFromChannels(int fd){
+	for (auto chan_it = _channels.begin(); chan_it != _channels.end();){
+		Channel& chan = chan_it->second;
+
+		chan.invites.erase(fd);
+		chan.ops.erase(fd);
+		chan.members.erase(fd);
+		if (chan.members.empty()){
+			chan_it = _channels.erase(chan_it);
+		}
+		else
+			++chan_it;
+	} 
 }
 
 // -------------------------------------- INIT ----------------------------------
@@ -567,7 +541,6 @@ void Server::run(){
 			2. events <= what you care about
 			3. revents <= what happened (filled by poll())
 	   We put the listening socket at index 0, watching POLLIN */
-	std::vector<pollfd> poll_fds;
 	poll_fds.push_back(pollfd{_listen_socket_fd, POLLIN, 0});
 
 	std::cout << "Server listening on port "
@@ -662,7 +635,8 @@ void Server::run(){
 						<< poll_fd.revents 
 						<< "\n";
 
-				disconnectClient(poll_fd.fd, poll_fds, i);
+				disconnectClient(poll_fd.fd, poll_fds);
+				--i;
 				continue;
 			}
 
@@ -683,7 +657,8 @@ void Server::run(){
 
 				if  ( n == 0  ) {
 					// peer closed connection
-					disconnectClient(poll_fd.fd, poll_fds, i);
+					disconnectClient(poll_fd.fd, poll_fds);
+					--i;
 					continue;
 				}
 
@@ -732,7 +707,8 @@ void Server::run(){
 			}
 			// -------------------------------- QUIT CLIENT --------------------------------
 			if (should_disconnect){
-				disconnectClient(poll_fd.fd, poll_fds, i);
+				disconnectClient(poll_fd.fd, poll_fds);
+				--i;
 				continue;
 			}
 			// ----------------------------------- WRITE -----------------------------------
@@ -849,6 +825,13 @@ void Server::handleCommand( Client& client, const Command& cmd ){
 		sendError(client, 451, ":You have not registered");
 		return;
 	}
+
+	// ---------------------------------------------------------- after registration
+	if ( cmd.name == "QUIT") {
+		disconnectClient(client.fd(), poll_fds);
+		return;
+	}
+
 	if ( cmd.name == "JOIN") {
 		cmdJOIN ( client, cmd );
 		std::cout << "JOIN called.. \n";
@@ -861,23 +844,9 @@ void Server::handleCommand( Client& client, const Command& cmd ){
 	}
 
 	if (cmd.name == "PART"){
-		const char* msg = "ERROR :Closing Link\r\n";
-		(void)send(client.fd(), msg, strlen(msg), MSG_NOSIGNAL);
-		//send(fd, msg, strlen(msg), MSG_NOSIGNAL);
-		shutdown(client.fd(), SHUT_RDWR);
 		return ;
 	}
 
-	// if ( cmd.name == "KICK" ) {
-	// 	cmdKICK( Client& c, const Command& cmd );
-	// 	return;
-	// }
-	// else{
-	// 	sendError(client, 421, cmd.name + " :Unknown command");
-	// 	return;
-	// }
-
-	// ---------------------------------------------------------- after registration
 	if (cmd.name == "PRIVMSG"){
 		cmdPRIVMSG(client, cmd);
 		return;
@@ -888,8 +857,13 @@ void Server::handleCommand( Client& client, const Command& cmd ){
 		return;
 	}
 
+	// if ( cmd.name == "KICK" ) {
+	// 	cmdKICK( Client& c, const Command& cmd );
+	// 	return;
+	// }
+
 	//IF COMMAND IS INVALID
-	sendError(client, 421, cmd.name + " :Unknown command");
+	sendError(client, 300, cmd.name + " :Unknown command");
 	// Later: JOIN, PRIVMSG, etc.
 
 }

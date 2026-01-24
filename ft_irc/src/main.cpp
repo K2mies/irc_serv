@@ -30,10 +30,13 @@ int main(int argc, char **argv){
 		Server server(port, password);
 		init_signals(&sa);
 		server.run();
+		if (g_signal){
+			server.signalShutdown();
+			return (2);
+		}
 	} catch (std::exception & e) {
 			std::cout << "Fatal error: " << e.what() << ".\n";
 			return (1);
 	}
-	
 	return(0);
 }

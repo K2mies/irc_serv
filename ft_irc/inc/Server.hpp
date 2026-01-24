@@ -22,21 +22,6 @@
 #include <cstdint>
 #include <string>
 
-// class Server {
-// 	private:
-// 		std::string _password;
-// 	public:
-// 		int listen_fd;
-// 		uint32_t port;
-
-// 		std::string pref = ":ircserv ";
-
-// 		std::vector<int> pfds;
-// 		std::vector<int> gtfo;
-// 		std::unordered_map<int, Client> fds;
-// 		std::unordered_map<std::string, Channel> chs;
-// };
-
 // --------------------------------------------------------------------- typedef
 typedef std::unordered_map<int, Client*>             ClientsMapFd;
 typedef std::unordered_map<std::string, Client*>     ClientsMapNick;
@@ -68,7 +53,7 @@ private:
 //   void  cmdKICK     ( Client& c, const Command& cmd );
 
   // ------------------------------------------------------------ connection helpers
-  void  disconnectClient(int fd, std::vector<pollfd>& poll_fds, size_t& i);
+  void  disconnectClient(int fd, std::vector<pollfd>& poll_fds);
   void  maybeWelcome(Client& client);
 
 public:
@@ -76,6 +61,9 @@ public:
   // ------------------------------------------------------------------------ init
   Server(int port, const std::string& password);
   ~Server();
+
+  // ------------------------------------------------------------------------ polls
+  std::vector<pollfd> poll_fds;
 
   // ----------------------------------------------------------------- server logic
   bool refreshPollEvents(std::vector<pollfd>& poll_fds);
@@ -99,4 +87,8 @@ public:
   // ------------------------------------------------------------- routing helpers
   void  sendNumeric (  Client& client, int code, const std::string& text );
   void  sendError   (  Client& client, int code, const std::string& text );
+
+  // ------------------------------------------------------------- shutdown
+  void  signalShutdown();
+  void  removeClientFromChannels(int fd);
 };

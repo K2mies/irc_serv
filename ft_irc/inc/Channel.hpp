@@ -37,29 +37,3 @@ private:
 	std::string _pass = "";
 	// void Channel::opCmds(Server& s, int fd, std::string& cmd, std::string arg);
 };
-
-
-
-// class Channel
-// {
-// 	public:
-// 		explicit Channel( const std::string& name );
-
-// 		const std::string& name() const;
-
-// 		bool  hasMember(  const Client* c ) const;
-// 		void  addMember(        Client* c );
-// 		void  removeMember(     Client* c );
-
-// 		bool  isOperator( const Client* c ) const;
-// 		void  addOperator(      Client* c );
-// 		void  removeOperator(   Client* c );
-
-// 		void  broadcast(const std::string& msg, const Client* except = 0); // "except = sender" if set to default(0) will send to everyone
-
-// 	private:
-// 		std::string                   _name;
-// 		std::unordered_set<Client*>   _members;
-// 		std::unordered_set<Client*>   _operators;
-// };
-
