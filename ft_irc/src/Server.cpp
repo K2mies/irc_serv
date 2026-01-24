@@ -12,12 +12,12 @@
 
 std::string Server::prefix(Client& client) {
 	std::string out;
-	out = client.nick() + "! " + client.nick() + "@ircserv" + " ";
+	out = ":" + client.nick() + "!" + client.nick() + "@ircserv ";
 	return out;
 }
 
 // ---------------------------------------------------------------- command PASS
-void  Server::cmdPASS ( Client& client, const Command& cmd ){
+void  Server::authPASS ( Client& client, const Command& cmd ){
 	if (  cmd.params.empty()  ) {
 		sendError(client, 461, "PASS :Not enough parameters");
 		return;
@@ -36,85 +36,101 @@ void  Server::cmdPASS ( Client& client, const Command& cmd ){
 	}
 }
 
-void Server::cmdJOIN( Client& client, const Command& cmd ) {
-	if (  cmd.params.empty()  ) {
+void Server::cmdJOIN(Client& client, const Command& cmd)
+	// JOIN <channel>
+{
+	if (cmd.params.empty()){
 		sendError(client, 461, "JOIN :Not enough parameters");
 		return;
 	}
+
 	const std::string& name = cmd.params[0];
-	if (_channels.contains(name)) {
-		Channel& ch = _channels.at(name);
-		if (ch.invite_only && !ch.invites.contains(client.fd())) {
-			std::string	err = pref + "475 " + client.nick() + " " + ch.name + " :Cannot join channel (+k)";
-			client.queue(err);
-			sendError(client, 489, "JOIN :invite only [ you are not invited ]");
-			return;
-		}
-		else if (ch.limit && ch.members.size() >= (unsigned long)ch.limit) {
-			sendError(client, 471, "ERR_CHANNELISFULL");
-			return;
-		}
-		if (!ch.key.empty() && cmd.params.size() < 2) {
-			std::string	err = pref + "475 " + client.nick() + " " + ch.name + " :Cannot join channel (+k)";
-			client.queue(err);
+	Channel* ch;
+
+	if (_channels.contains(name))
+		ch = &_channels.at(name);
+	else{
+		auto [it, created] = _channels.try_emplace(name, name);
+		ch = &it->second;
+		ch->ops.insert(client.fd());
+	}
+
+	if (ch->invite_only && !ch->invites.contains(client.fd())){
+		sendError(client, 473, name + " :Cannot join channel (+i)");
+		return;
+	}
+
+	if (ch->limit && ch->members.size() >= (size_t)ch->limit){
+		sendError(client, 471, name + " :Cannot join channel (+l)");
+		return;
+	}
+
+	if (!ch->key.empty()){
+		if (cmd.params.size() < 2){
 			sendError(client, 461, "JOIN :Not enough parameters");
 			return;
-		}	
-		if (!ch.key.empty() && cmd.params[1] != ch.key) {
-			std::string	err = pref + "475 " + client.nick() + " " + ch.name + " :Cannot join channel (+k)";
-			client.queue(err);
-			sendError(client, 475, "ERR_BADCHANNELKEY");
-			return;			
 		}
-		ch.members.insert(client.fd());
-	}
-	else {
-		auto [it, created] = _channels.try_emplace(name, name); // calls Channel(name)
-		if (created) {
-			Channel& ch = it->second;
-			ch.members.insert(client.fd());
-			ch.ops.insert(client.fd());
+		if (cmd.params[1] != ch->key){
+			sendError(client, 475, name + " :Cannot join channel (+k)");
+			return;
 		}
 	}
-	Channel& ch = _channels.at(name);
-	std::string out = prefix(client) + "JOIN " + ch.name;
-	client.queue(out);
-	if (ch.topic.empty())
-		out = pref + "331 " + client.nick() + " " + ch.name + " :No topic set!!! " + ch.name;
+
+	ch->members.insert(client.fd());
+
+	/* JOIN broadcast */
+	broadcast(*ch, prefix(client) + "JOIN " + name, &client);
+
+	/* Topic */
+	if (ch->topic.empty())
+		client.queue(pref + "331 " + client.nick() + " " + name + " :No topic is set");
 	else
-		out = pref + "332 " + client.nick() + " " + ch.name + " " + ch.topic + ch.name;
-	client.queue(out);
-	out = pref + "353 " + client.nick() + " = " + ch.name + " :";
-	for (auto& fd : ch.members) {
-		auto it = _clients_by_fd.find(fd);
-		if (it == _clients_by_fd.end() || it->second == nullptr)
-			continue;
-		Client* client = it->second;
-		if (ch.ops.contains(client->fd()))
-			out += "@";
-		out += client->nick() + " ";
+		client.queue(pref + "332 " + client.nick() + " " + name + " :" + ch->topic);
+
+	/* NAMES */
+	std::string names = pref + "353 " + client.nick() + " = " + name + " :";
+	for (int fd : ch->members){
+		Client* c = getClientByFd(fd);
+		if (!c) continue;
+		if (ch->ops.contains(fd))
+			names += "@";
+		names += c->nick() + " ";
 	}
-	client.queue(out);
-	out = pref + "366 " + client.nick() + " " + ch.name + " End of /NAMES list";
-	client.queue(out);
+	client.queue(names);
+	client.queue(pref + "366 " + client.nick() + " " + name + " :End of /NAMES list");
 }
 
+
 void Server::cmdTOPIC( Client& client, const Command& cmd ) {
-	if (!_channels.contains(cmd.params[0])) {
+	// TOPIC <channel> - to view topic
+	// TOPIC <channel> <topic> - to change topic
+	if (cmd.params.empty() || !_channels.contains(cmd.params[0])) {
 		sendError(client, 401, "TOPIC :No such channel");
 		return;
 	}
-	Channel& ch = _channels.at(cmd.params[0]);
+	Channel& chan = _channels.at(cmd.params[0]);
 	if (cmd.params.size() == 1) {
-
-		if (ch.topic.empty()) {
-			client.queue(pref + "331" + client.nick() + ch.name + ":No topic set");
+		if (chan.topic.empty()) {
+			client.queue(pref + "331 " + client.nick() + " " + chan.name + ":No topic set");
 			return;
 		}
 		else {
-			client.queue(pref + "332 " + client.nick() + " " + ch.name + " " + ch.topic);
+			client.queue(pref + "332 " + client.nick() + " " + chan.name + " " + chan.topic);
 			return;	
 		}
+	}
+	else {
+		if (chan.topic_operator && !chan.ops.contains(client.fd())) {
+			sendError(client, 482, "TOPIC :You are not operator");
+			return;
+		}
+		if (cmd.params.size() < 2) {
+			sendError(client, 461, "TOPIC :Not enough parameters");
+			return;
+		}
+		chan.topic = cmd.params[1];
+		std::string s = prefix(client) + "TOPIC " + chan.name + " : " + chan.topic;
+		broadcast(chan, s);
 	}
 }
 
@@ -177,20 +193,118 @@ void	Server::cmdINVITE(Client& inviter, const Command& cmd){
 	target->queue(msg);
 }
 
-void Server::broadcast(Channel& ch, std::string msg, const Client* sender) {
-	for (auto it = ch.members.begin(); it != ch.members.end(); ) {
-		Client* client = getClientByFd(*it);
-		if (!client) {
-			it = ch.members.erase(it); // CLEAN DEAD FD
-			continue;
-		}
-		if (sender && client->fd() == sender->fd()) {
-			++it;
-			continue;
-		}
-		client->queue(msg);
-		++it;
+void Server::cmdMODE(Client& client, const Command& cmd) {
+	if (cmd.params.empty()) {
+		sendError(client, 461, "MODE :Not enough parameters");
+		return;
 	}
+
+	const std::string& target = cmd.params[0];
+	std::string mode = "";
+	if (cmd.params.size() > 1) 
+		mode = cmd.params[1];
+
+	// ---------------- USER MODE ----------------
+	if (!target.empty() && target[0] != '#') {
+		if (target != client.nick()) {
+			sendError(client, 502, ":Cannot change mode for other users");
+			return;
+		}
+
+		if (target != client.nick()) {
+			sendError(client, 502, ":Cannot change mode for other users");
+			return;
+		}
+		return;
+	}
+
+	// ---------------- CHANNEL MODE ----------------
+	Channel* chan = getChannel(target);
+	if (!chan) {
+		sendError(client, 403, target + " :No such channel");
+		return;
+	}
+
+	if (mode.empty()) {
+		// just query channel modes
+		std::string modeStr = "+";
+		std::string params;
+
+		if (chan->invite_only) modeStr += "i";
+		if (chan->topic_operator) modeStr += "t";
+		if (!chan->key.empty()) {
+			modeStr += "k";
+			params += " " + chan->key;
+		}
+
+		client.queue(":ircserv 324 " + client.nick() + " " + chan->name + " " + modeStr + params);
+		return;
+	}
+
+	bool is_op = chan->ops.contains(client.fd());
+
+	if (mode == "+i") {
+		if (!is_op) {
+			sendError(client, 482, ":You are not channel operator");
+			return;
+		}
+		chan->invite_only = true;
+	} else if (mode == "-i") {
+		if (!is_op) {
+			sendError(client, 482, ":You are not channel operator");
+			return;
+		}
+		chan->invite_only = false;
+	} else if (mode == "+t") {
+		if (!is_op) {
+			sendError(client, 482, ":You are not channel operator");
+			return;
+		}
+		chan->topic_operator = true;
+	} else if (mode == "-t") {
+		if (!is_op) {
+			sendError(client, 482, ":You are not channel operator");
+			return;
+		}
+		chan->topic_operator = false;
+	} else if (mode == "+k" || mode == "-k") {
+		if (!is_op) {
+			sendError(client, 482, ":You are not channel operator");
+			return;
+		}
+		if (mode == "+k") {
+			if (cmd.params.size() < 3) { sendError(client, 461, "MODE :Not enough parameters"); return; }
+			chan->key = cmd.params[2];
+		} else {
+			chan->key.clear();
+		}
+	} else if (mode == "+o" || mode == "-o") {
+		if (!is_op) {
+			sendError(client, 482, ":You are not channel operator");
+			return;
+		}
+		if (cmd.params.size() < 3) {
+			sendError(client, 461, "MODE :Not enough parameters");
+			return;
+		}
+		const std::string& nick = cmd.params[2];
+		Client* target_client = getClientByNick(nick);
+		if (!target_client || !chan->members.contains(target_client->fd())) {
+			sendError(client, 441, nick + " :User not in channel");
+			return;
+		}
+		if (mode == "+o")
+			chan->ops.insert(target_client->fd());
+		else
+			chan->ops.erase(target_client->fd());
+	}
+
+	// broadcast the mode change
+	std::string msg = prefix(client) + "MODE " + chan->name + " :" + mode;
+	if ((mode == "+k" || mode == "+o" || mode == "-o") && cmd.params.size() >= 3)
+		msg += " " + cmd.params[2];
+	client.queue(msg);
+	broadcast(*chan, msg, &client);
 }
 
 
@@ -199,9 +313,23 @@ void Server::broadcast(Channel& ch, std::string msg, const Client* sender) {
 
 // }
 
+void Server::broadcast(Channel& chan, std::string msg, const Client* sender) {
+	for (auto chan_it = chan.members.begin(); chan_it != chan.members.end(); ) {
+		Client* client = getClientByFd(*chan_it);
+		if (!client) {
+			chan_it = chan.members.erase(chan_it); // CLEAN DEAD FD
+			continue;
+		}
+		if (sender && client->fd() == sender->fd()) {
+			++chan_it;
+			continue;
+		}
+		client->queue(msg);
+		++chan_it;
+	}
+}
 
 // ---------------------------------------------------------------- command NICK
-
 static bool isValidNick(const std::string &nick){
 	if (nick.empty()) return false;
 	if (nick[0] == '#' || nick[0] == ':')return false;
@@ -212,7 +340,7 @@ static bool isValidNick(const std::string &nick){
 	return true;
 }
 
-void Server::cmdNICK(Client& client, const Command& cmd){
+void Server::authNICK(Client& client, const Command& cmd){
 	if (cmd.params.empty()){
 		sendError(client, 431, ":No nickname given");
 		return ;
@@ -255,7 +383,7 @@ void Server::cmdNICK(Client& client, const Command& cmd){
 }
 
 // ---------------------------------------------------------------- command USER
-void  Server::cmdUSER( Client& client, const Command& cmd){
+void  Server::authUSER( Client& client, const Command& cmd){
 	if (cmd.params.empty()){
 		sendError(client, 461, "USER :Not enough parameters");
 		return ;
@@ -300,7 +428,7 @@ void	Server::cmdPRIVMSG( Client& sender, const Command& cmd){
 		}
 
 		const std::string prefix	= ":" + sender.nick() + "!" + sender.user() + "@ircserv ";
-		const std::string out		= prefix + "PRIVMSG " + target + " :" + text + "\r\n";
+		const std::string out		= prefix + "PRIVMSG " + target + " :" + text;
 		broadcast(*ch, out, &sender);
 		return;
 	}
@@ -312,37 +440,12 @@ void	Server::cmdPRIVMSG( Client& sender, const Command& cmd){
 		return ;
 	}
 
-	const std::string out = prefix + "PRIVMSG " + target + " :" + text + "\r\n";
+	const std::string out = prefix + "PRIVMSG " + target + " :" + text;
 	destination->queue(out);
 
 	// //TEMP FOR DEBUGGING
 	// std::cerr << "PRIVMSG target=[" << target << "] map_size=" << _clients_by_nick.size() << "\n";
 }
-
-void Server::cmdMODE(Client& client, const Command& cmd) {
-	if (cmd.params.empty()) {
-		sendError(client, 461, "MODE :Not enough parameters");
-		return;
-	}
-
-	const std::string& target = cmd.params[0];
-
-	// MODE <nick>
-	if (target == client.nick()) {
-		// Query or set own modes → just say "+i"
-		sendNumeric(client, 221, "+i");
-		return;
-	}
-
-	// MODE #channel
-	if (!target.empty() && target[0] == '#') {
-		return;
-	}
-
-	sendError(client, 502, ":Cannot change mode for other users");
-}
-
-
 
 //TODO------------currently not used anywhere
 
@@ -800,19 +903,19 @@ void Server::handleCommand( Client& client, const Command& cmd ){
 
 	//if (  cmd.name == "PASS" && !client.isWelcomed()){
 	if (  cmd.name == "PASS"){
-		cmdPASS       (client, cmd  );
+		authPASS       (client, cmd  );
 		return;
 	}
 
 	//if (  cmd.name == "NICK" && !client.isWelcomed()){
 	if (  cmd.name == "NICK"){
-		cmdNICK       ( client, cmd );
+		authNICK       ( client, cmd );
 		return;
 	}
 
 	//if (  cmd.name == "USER" && !client.isWelcomed()){
 	if (  cmd.name == "USER"){
-		cmdUSER       ( client, cmd );
+		authUSER       ( client, cmd );
 		if (client.isRegistered() && !client.isWelcomed()){
 			maybeWelcome  ( client      );
 			client.setWelcomed();
@@ -839,7 +942,12 @@ void Server::handleCommand( Client& client, const Command& cmd ){
 	}
 
 	if (cmd.name == "MODE") {
-		cmdMODE(client, cmd);
+		cmdMODE(client, cmd );
+		return;
+	}
+
+	if (cmd.name == "TOPIC") {
+		cmdTOPIC( client, cmd );
 		return;
 	}
 
@@ -863,7 +971,7 @@ void Server::handleCommand( Client& client, const Command& cmd ){
 	// }
 
 	//IF COMMAND IS INVALID
-	sendError(client, 300, cmd.name + " :Unknown command");
+	sendError(client, 421, cmd.name + " :Unknown command");
 	// Later: JOIN, PRIVMSG, etc.
 
 }

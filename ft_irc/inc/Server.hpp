@@ -41,9 +41,9 @@ private:
 
 private:
   // ------------------------------------------------------------ command handlers
-  void  cmdPASS     ( Client& client, const Command& cmd );
-  void  cmdNICK     ( Client& client, const Command& cmd );
-  void  cmdUSER     ( Client& client, const Command& cmd );
+  void  authPASS     ( Client& client, const Command& cmd );
+  void  authNICK     ( Client& client, const Command& cmd );
+  void  authUSER     ( Client& client, const Command& cmd );
   void  cmdJOIN     ( Client& client, const Command& cmd );
   void  cmdQUIT     ( Client& client, const Command& cmd );
   void  cmdPRIVMSG  ( Client& client, const Command& cmd );

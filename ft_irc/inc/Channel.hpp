@@ -26,14 +26,15 @@ public:
 	std::unordered_set<int> ops;
 	std::unordered_set<int> members;
 
-	bool invite_only = true;
+	bool invite_only = false;
+	bool topic_operator = false;
 
-	int checkPass(std::string pw);
-	int setPass(std::string pw);
-    explicit Channel(const std::string& n) : name(n), topic("") {}
+    explicit Channel(const std::string& n) : name(n), topic(""), key("") {}
     Channel() : topic("") {} // IMPORTANT: needed for try_emplace/emplace sometimes
     // ~Channel();
 private:
-	std::string _pass = "";
+	// int checkPass(std::string pw);
+	// int setPass(std::string pw);
+	// std::string _pass = "";
 	// void Channel::opCmds(Server& s, int fd, std::string& cmd, std::string arg);
 };
