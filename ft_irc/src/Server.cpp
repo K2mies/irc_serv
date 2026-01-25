@@ -129,6 +129,50 @@ void Server::cmdPART(Client& client, const Command& cmd) {
 	broadcast(chan, msg, nullptr);
 }
 
+void Server::cmdKICK(Client& client, const Command& cmd) {
+	// KICK <channel> <user> (<comment>)
+	if (cmd.params.size() < 2) {
+		sendError(client, 461, "KICK :Need more parameters");
+		return;
+	}
+	if (!_channels.contains(cmd.params[0])) {
+		sendError(client, 403, "KICK :no such channel [ " + cmd.params[0] + " ]");
+		return;
+	}
+	Channel& chan = _channels.at(cmd.params[0]);
+	Client* target = getClientByNick(cmd.params[1]);
+	if (!target) {
+		sendError(client, 401, "KICK :No such nick");
+		return;
+	}
+	int fd = (*target).fd();
+
+	if (!chan.ops.contains(client.fd())) {
+		sendError(client, 482, "KICK :You're not channel operator");
+		return;
+	}
+	if (!chan.members.contains(fd)) {
+		sendError(client, 441, "KICK :They aren't on that channel");
+		return;
+	}
+	
+	std::string comment = "";
+	if (cmd.params.size() >= 3)
+		comment = " using [" + cmd.params[2] + "] as the reason (comment)";
+	std::string msg = prefix(client) + "KICK " + chan.name + " " + cmd.params[1] \
+									 + ":" + client.nick() + " to remove " \
+									 + cmd.params[1] + " from channel" + comment + "\r\n";
+	send(fd, msg.c_str(), msg.size(), MSG_NOSIGNAL);
+	if (chan.ops.contains(fd))
+		chan.ops.erase(fd);
+	if (chan.invites.contains(fd))
+		chan.invites.erase(fd);
+	chan.members.erase(fd);
+	if (chan.members.size() == 0) {
+		_channels.erase(chan.name);
+	}
+	broadcast(chan, msg, nullptr);
+}
 
 void Server::cmdTOPIC( Client& client, const Command& cmd ) {
 	// TOPIC <channel> - to view topic
@@ -453,6 +497,11 @@ void	Server::cmdPRIVMSG( Client& sender, const Command& cmd){
 
 		if (!_channels.contains(target)) {
 			sendError(sender, 403, target + " :No such channel");
+			return;
+		}
+
+		if (!ch->members.contains(sender.fd())) {
+			sendError(sender, 442, "You're not on that channel");
 			return;
 		}
 
@@ -994,10 +1043,11 @@ void Server::handleCommand( Client& client, const Command& cmd ){
 		cmdPART(client, cmd);
 		return;
 	}
-	// if ( cmd.name == "KICK" ) {
-	// 	cmdKICK( Client& c, const Command& cmd );
-	// 	return;
-	// }
+
+	if ( cmd.name == "KICK" ) {
+		cmdKICK(client, cmd);
+		return;
+	}
 
 	//IF COMMAND IS INVALID
 	sendError(client, 421, cmd.name + " :Unknown command");

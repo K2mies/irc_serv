@@ -44,14 +44,14 @@ private:
   void  authPASS     ( Client& client, const Command& cmd );
   void  authNICK     ( Client& client, const Command& cmd );
   void  authUSER     ( Client& client, const Command& cmd );
-  void  cmdJOIN     ( Client& client, const Command& cmd );
-  void  cmdQUIT     ( Client& client, const Command& cmd );
-  void  cmdPRIVMSG  ( Client& client, const Command& cmd );
-  void  cmdMODE     ( Client& client, const Command& cmd );
-  void  cmdTOPIC    ( Client& client, const Command& cmd );
-  void	cmdINVITE   ( Client& client, const Command& cmd );
-  void  cmdPART     (Client& client, const Command& cmd);
-//   void  cmdKICK     ( Client& c, const Command& cmd );
+  void  cmdJOIN      ( Client& client, const Command& cmd );
+  void  cmdQUIT      ( Client& client, const Command& cmd );
+  void  cmdPRIVMSG   ( Client& client, const Command& cmd );
+  void  cmdMODE      ( Client& client, const Command& cmd );
+  void  cmdTOPIC     ( Client& client, const Command& cmd );
+  void	cmdINVITE    ( Client& client, const Command& cmd );
+  void  cmdPART      ( Client& client, const Command& cmd );
+  void  cmdKICK      ( Client& client, const Command& cmd );
 
   // ------------------------------------------------------------ connection helpers
   void  disconnectClient(int fd, std::vector<pollfd>& poll_fds);
