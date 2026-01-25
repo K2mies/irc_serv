@@ -50,6 +50,7 @@ private:
   void  cmdMODE     ( Client& client, const Command& cmd );
   void  cmdTOPIC    ( Client& client, const Command& cmd );
   void	cmdINVITE   ( Client& client, const Command& cmd );
+  void  cmdPART     (Client& client, const Command& cmd);
 //   void  cmdKICK     ( Client& c, const Command& cmd );
 
   // ------------------------------------------------------------ connection helpers

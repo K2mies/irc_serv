@@ -31,7 +31,7 @@ public:
 
     explicit Channel(const std::string& n) : name(n), topic(""), key("") {}
     Channel() : topic("") {} // IMPORTANT: needed for try_emplace/emplace sometimes
-    // ~Channel();
+    ~Channel() = default;
 private:
 	// int checkPass(std::string pw);
 	// int setPass(std::string pw);

@@ -100,6 +100,35 @@ void Server::cmdJOIN(Client& client, const Command& cmd)
 	client.queue(pref + "366 " + client.nick() + " " + name + " :End of /NAMES list");
 }
 
+void Server::cmdPART(Client& client, const Command& cmd) {
+	// PART <channel> <reason>
+	if (cmd.params.empty() || cmd.params.size() < 1) {
+		sendError(client, 461, "PART :Need more parameters");
+		return;
+	}
+	if (!_channels.contains(cmd.params[0])) {
+		sendError(client, 403, "PART :no such channel [ " + cmd.params[0] + " ]");
+		return;
+	}
+	Channel& chan = _channels.at(cmd.params[0]);
+	int fd = client.fd();
+	if (!chan.members.contains(fd)) {
+		sendError(client, 442, "PART :Not on channel");
+		return;
+	}
+	if (chan.ops.contains(fd))
+		chan.ops.erase(fd);
+	if (chan.invites.contains(fd))
+		chan.invites.erase(fd);
+	chan.members.erase(fd);
+	if (chan.members.size() == 0) {
+		_channels.erase(_channels.find(chan.name));
+		chan.~Channel();
+	}
+	std::string msg = prefix(client) + client.nick() + " has left " + chan.name + ".";
+	broadcast(chan, msg, nullptr);
+}
+
 
 void Server::cmdTOPIC( Client& client, const Command& cmd ) {
 	// TOPIC <channel> - to view topic
@@ -951,20 +980,20 @@ void Server::handleCommand( Client& client, const Command& cmd ){
 		return;
 	}
 
-	if (cmd.name == "PART"){
-		return ;
-	}
-
 	if (cmd.name == "PRIVMSG"){
 		cmdPRIVMSG(client, cmd);
 		return;
 	}
 
-	else if (cmd.name == "INVITE"){
+	if (cmd.name == "INVITE"){
 		cmdINVITE(client, cmd);
 		return;
 	}
 
+	if (cmd.name == "PART"){
+		cmdPART(client, cmd);
+		return;
+	}
 	// if ( cmd.name == "KICK" ) {
 	// 	cmdKICK( Client& c, const Command& cmd );
 	// 	return;
