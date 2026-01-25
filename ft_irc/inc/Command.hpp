@@ -17,10 +17,10 @@
 #include <vector>
 
 struct Command {
-  std::string               prefix;   // rarely used for client->server
-  std::string               name;     // "NICK", "JOIN", ...
-  std::vector<std::string>  params;   // includes trailing as one param if parsed that way
+	std::string               prefix;   // rarely used for client->server
+	std::string               name;     // "NICK", "JOIN", ...
+	std::vector<std::string>  params;   // includes trailing as one param if parsed that way
 };
 
 // ------------------------------------------------------------ parsing
-Command parseCommand(const std::string& line);
+Command  parseCommand( const std::string& line );

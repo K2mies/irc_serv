@@ -29,12 +29,6 @@ public:
 	bool invite_only = false;
 	bool topic_operator = false;
 
-    explicit Channel(const std::string& n) : name(n), topic(""), key("") {}
-    Channel() : topic("") {} // IMPORTANT: needed for try_emplace/emplace sometimes
-    ~Channel() = default;
-private:
-	// int checkPass(std::string pw);
-	// int setPass(std::string pw);
-	// std::string _pass = "";
-	// void Channel::opCmds(Server& s, int fd, std::string& cmd, std::string arg);
+	explicit  Channel( const std::string& n ) : name(n), topic(""), key("") {}
+	Channel() : topic("") {} // IMPORTANT: needed for try_emplace/emplace sometimes
 };

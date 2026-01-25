@@ -20,54 +20,47 @@ typedef std::unordered_set<std::string> ChannelSet;
 
 class Client {
 public:
-  int           _fd;
+	int           _fd;
 
-  std::string   _nick;
-  std::string   _user;
+	std::string   _nick;
+	std::string   _user;
 
-  bool          _passOk     = false;
-  bool          _hasNick    = false;
-  bool          _hasUser    = false;
-  bool          _registered = false;
-  bool          _welcomed   = false;
+	bool          _passOk     = false;
+	bool          _hasNick    = false;
+	bool          _hasUser    = false;
+	bool          _registered = false;
+	bool          _welcomed   = false;
 
-  ChannelSet    _channels;
+	ChannelSet    _channels;
 
-  std::string   _in;
-  std::string   _out;
-  
-  public:
+	std::string   _in;
+	std::string   _out;
+	
+	public:
+	// ----------------------------------------------------------------- constructor
+	explicit  Client(int fd);
 
-  // ----------------------------------------------------------------- constructor
-  explicit  Client(int fd);
+	// ---------------------------------------------------------------------- getter
+	int  fd()    const;
+	const ChannelSet&  channels() const;
+	std::string&  inbuf();                 // append recv() bytes here
+	std::string&  outbuf();
 
-  // ---------------------------------------------------------------------- getter
-  int       fd()    const;
+	// ----------------------------------------------------- identity / registration
+	const  std::string&  nick()          const;
+	const  std::string&  user()          const;
+	bool  isRegistered()  const;
+	bool  isWelcomed()    const;
 
-  // ----------------------------------------------------- identity / registration
-  const std::string&  nick()          const;
-  const std::string&  user()          const;
-  bool                isRegistered()  const;
-  bool                isWelcomed()    const;
+	// ---------------------------------------------------------------- registration
+	void  setNick   ( const std::string& nick );
+	void  setUser   ( const std::string& user );
+	void  setPassOk ( bool ok );
+	void  setWelcomed();
+	void  tryCompleteRegistration(); // sets registered when PASS(if needed)+NICK+USER are ready
 
-  // ---------------------------------------------------------------- registration
-  void  setNick   ( const std::string& nick );
-  void  setUser   ( const std::string& user );
-  void  setPassOk ( bool ok );
-  void  tryCompleteRegistration(); // sets registered when PASS(if needed)+NICK+USER are ready
-  void  setWelcomed();
-
-  // ----------------------------------------------------------- inbound buffering
-  std::string& inbuf();                 // append recv() bytes here
-  bool  popLine( std::string &line );   // extract one \r\n line
-
-  // ---------------------------------------------------------- outbound buffering
-  void  queue( const std::string& msg ); // always appends \r\n in one place (recommended)
-  bool  hasPendingOutput() const;
-  std::string &outbuf();
-
-  // ------------------------------------------------------ membership bookkeeping
-  void  joinChannel   ( const std::string& chan );
-  void  leaveChannel  ( const std::string& chan );
-  const ChannelSet& channels() const;
+	// ------------------------------------------------------------------- buffering
+	bool  popLine( std::string &line );   // extract one \r\n line
+	void  queue( const std::string& msg ); // always appends \r\n in one place (recommended)
+	bool  hasPendingOutput() const;
 };

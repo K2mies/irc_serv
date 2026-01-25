@@ -15,10 +15,10 @@
 #include <string>
 #include <vector>
 
-static std::string toUpper( std::string s ){
-  for ( size_t i = 0; i < s.size(); i++ )
-    s[i] = static_cast<char>( std::toupper(static_cast<unsigned char>( s[i] )));
-  return ( s );
+static std::string  toUpper( std::string s ){
+	for ( size_t i = 0; i < s.size(); i++ )
+		s[i] = static_cast<char>( std::toupper(static_cast<unsigned char>( s[i] )));
+	return ( s );
 }
 
 /*
@@ -26,75 +26,75 @@ static std::string toUpper( std::string s ){
  *  1.  it uppercases the command so you can compare "PING" reliably.
  *  2.  t supports trailing params (super important for PRIVMSG later).
  */
-Command parseCommand( const std::string &line ){
-  Command cmd;
+Command  parseCommand( const std::string &line ){
+	Command cmd;
 
-  std::string s = line;
-  size_t i = 0;
+	std::string s = line;
+	size_t i = 0;
 
-  // --------------------------------------------------------- skip leading spaces
-  while ( i < s.size() && s[i] == ' ' ) i++;
+	// --------------------------------------------------------- skip leading spaces
+	while ( i < s.size() && s[i] == ' ' ) i++;
 
-  // ------------------------------------------------- optional prefex : ":prefex"
-  if ( i < s.size() && s[i] == ':' ){
-    size_t end = s.find( ' ', i );
-    if ( end == std::string::npos ){
-      // Line is only a prefix ( weird, but handle )
-      cmd.prefix = s.substr(i + 1 );
-      return( cmd );
-    }
-    cmd.prefix = s.substr(i + 1, end - (i + 1));
-    i = end + 1;
-    while ( i < s.size() && s[i] == ' ') i++;
-  }
+	// ------------------------------------------------- optional prefex : ":prefex"
+	if ( i < s.size() && s[i] == ':' ){
+		size_t end = s.find( ' ', i );
+		if ( end == std::string::npos ){
+			// Line is only a prefix ( weird, but handle )
+			cmd.prefix = s.substr(i + 1 );
+			return( cmd );
+		}
+		cmd.prefix = s.substr(i + 1, end - (i + 1));
+		i = end + 1;
+		while ( i < s.size() && s[i] == ' ') i++;
+	}
 
-  // ---------------------------------------------------------------- command name
-  size_t  end = s.find(' ', i);
-  if (    end == std::string::npos  ){
-          cmd.name = toUpper(s.substr(i));
-          return ( cmd );
-  }
-  cmd.name = toUpper(s.substr(i, end - i ) );
-  i = end + 1;
+	// ---------------------------------------------------------------- command name
+	size_t  end = s.find(' ', i);
+	if (    end == std::string::npos  ){
+					cmd.name = toUpper(s.substr(i));
+					return ( cmd );
+	}
+	cmd.name = toUpper(s.substr(i, end - i ) );
+	i = end + 1;
 
-  // ---------------------------------------------------------------------- params
-  while ( i < s.size() ){
+	// ---------------------------------------------------------------------- params
+	while ( i < s.size() ){
 
-    while ( i <   s.size()  &&  s[i] == ' ') i++;
-    if    ( i >=  s.size()) break;
-    
-    // Trailing param: ":" then rest of line (can contain spaces)
-    if (  s[i] == ':' ) {
-          cmd.params.push_back(s.substr(i + 1 ) );
-          break;
-    }
+		while ( i <   s.size()  &&  s[i] == ' ') i++;
+		if    ( i >=  s.size()) break;
 
-    size_t  next =  s.find(' ', i);
-    if (    next == std::string::npos){
-            cmd.params.push_back(s.substr(i));
-            break;
-    }
+		// Trailing param: ":" then rest of line (can contain spaces)
+		if (  s[i] == ':' ) {
+					cmd.params.push_back(s.substr(i + 1 ) );
+					break;
+		}
 
-    cmd.params.push_back(s.substr(i, next - i));
-    i = next + 1;
-  }
+		size_t  next =  s.find(' ', i);
+		if (    next == std::string::npos){
+						cmd.params.push_back(s.substr(i));
+						break;
+		}
 
-  //-----------------------------TEMP FOR DEBUGGING
-  std::cerr
-            <<  "cmd prefix: "
-            <<  cmd.prefix
-            <<  std::endl
+		cmd.params.push_back(s.substr(i, next - i));
+		i = next + 1;
+	}
 
-            <<  "cmd name: "
-            <<  cmd.name
-            <<  std::endl
-            
-            << "params: ";
+	//-----------------------------TEMP FOR DEBUGGING
+	// std::cerr
+	// 					<<  "cmd prefix: "
+	// 					<<  cmd.prefix
+	// 					<<  std::endl
 
-  for ( auto &param : cmd.params ){
-    std::cerr << "(" << param << "), ";
-  }
-  std::cerr << std::endl;
+	// 					<<  "cmd name: "
+	// 					<<  cmd.name
+	// 					<<  std::endl
+						
+	// 					<< "params: ";
 
-  return ( cmd );
+	// for ( auto &param : cmd.params ){
+	// 	std::cerr << "(" << param << "), ";
+	// }
+	// std::cerr << std::endl;
+
+	return ( cmd );
 }

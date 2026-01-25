@@ -1,8 +1,8 @@
 #include "Signals.hpp"
 
-static void signal_handler(int signal);
+static void  signal_handler( int signal );
 
-void init_signals(struct sigaction *sa){
+void  init_signals(  struct sigaction *sa ){
 	sigemptyset(&sa->sa_mask);
 	sigaddset(&sa->sa_mask, SIGINT);
 	sigaddset(&sa->sa_mask, SIGQUIT);
@@ -20,7 +20,7 @@ void init_signals(struct sigaction *sa){
 	g_signal = 0;
 }
 
-static void signal_handler(int signal){
+static void  signal_handler( int signal ){
 	if (g_signal == 0){
 		if (signal == SIGINT)
 			g_signal = SIGINT;
@@ -31,7 +31,7 @@ static void signal_handler(int signal){
 	}
 }
 
-bool check_signals(){
+bool  check_signals(){
 	if (g_signal != 0){
 		if (g_signal == SIGTERM)
 			std::cerr << "SIGTERM signal caught, server shutdown now.\n";
