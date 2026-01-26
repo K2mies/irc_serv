@@ -1,4 +1,5 @@
 #include "Server.hpp"
+// #include <stdlib.h>
 
 // --------------------------------------------------------------------- command KICK
 void Server::cmdKICK(Client& client, const Command& cmd) {
@@ -36,7 +37,7 @@ void Server::cmdKICK(Client& client, const Command& cmd) {
 									 + ":" + client.nick() + " to remove " \
 									 + cmd.params[1] + " from channel" + comment + "\r\n";
 	(void)send(fd, msg.c_str(), msg.size(), MSG_NOSIGNAL);
-
+	broadcast(chan, msg, nullptr);
 	if (chan.ops.contains(fd))
 		chan.ops.erase(fd);
 	if (chan.invites.contains(fd))
@@ -45,7 +46,6 @@ void Server::cmdKICK(Client& client, const Command& cmd) {
 	if (chan.members.size() == 0) {
 		_channels.erase(chan.name);
 	}
-	broadcast(chan, msg, nullptr);
 }
 
 // ------------------------------------------------------------------- command INVITE
@@ -255,11 +255,34 @@ void Server::cmdMODE(Client& client, const Command& cmd) {
 			chan->ops.insert(target_client->fd());
 		else
 			chan->ops.erase(target_client->fd());
+	} else if (mode == "+l" || mode == "-l") {
+		if (!is_op) {
+			sendError(client, 482, ":You are not channel operator");
+			return;
+		}
+		if ((mode == "+l" && cmd.params.size() < 3) || (mode == "-l" && cmd.params.size() < 2)) {
+			sendError(client, 461, "MODE :Not enough parameters");
+			return;
+		}
+		if (mode == "+l"){
+			int limit = std::atoi(cmd.params[2].c_str());
+			if (limit >= 1){
+				chan->limit = limit;
+			}
+			else {
+				sendError(client, 461, "MODE :Not enough parameters");
+				return;
+			}
+		}
+		else
+			chan->limit = 0;
+	} else {
+		sendError(client, 501, "MODE :Unknown MODE flag");
+		return;
 	}
-
 	// broadcast the mode change
 	std::string msg = prefix(client) + "MODE " + chan->name + " :" + mode;
-	if ((mode == "+k" || mode == "+o" || mode == "-o") && cmd.params.size() >= 3)
+	if ((mode == "+k" || mode == "+o" || mode == "-o" || mode == "+l") && cmd.params.size() >= 3)
 		msg += " " + cmd.params[2];
 	client.queue(msg);
 	broadcast(*chan, msg, &client);
