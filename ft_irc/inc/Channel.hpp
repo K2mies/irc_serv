@@ -26,8 +26,8 @@ public:
 	std::unordered_set<int> ops;
 	std::unordered_set<int> members;
 
-	bool invite_only = false;
-	bool topic_operator = false;
+	bool invite_only	= false;
+	bool topic_operator	= false;
 
 	explicit  Channel( const std::string& n ) : name(n), topic(""), key("") {}
 	Channel() : topic("") {} // IMPORTANT: needed for try_emplace/emplace sometimes
