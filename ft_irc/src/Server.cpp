@@ -1,334 +1,22 @@
 #include "Server.hpp"
-#include "Channel.hpp"
 
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <cstring>
-#include <cerrno>
-
-// ------------------------------------------------------------ command handlers
-
-std::string Server::pr(Client& c) {
-	std::string s;
-	s = c.nick() + "! " + c.nick() + "@ircserv" + " ";
-	return s;
-}
-
-// ---------------------------------------------------------------- command PASS
-void  Server::cmdPASS ( Client& client, const Command& cmd ){
-	if (  cmd.params.empty()  ) {
-		sendError(client, 461, "PASS :Not enough parameters");
-		return;
-	}
-	if (  client.isRegistered()  ) {
-		sendError(client, 462, ":You may not register"  );
-		return;
-	}
-
-	const std::string& pass = cmd.params[0];
-	if (  _password.empty() || pass == _password ) {
-		client.setPassOk(  true  );
-	}
-	else {
-		sendError( client, 464, ":Password incorrect");
-	}
-}
-
-void Server::cmdJOIN( Client& c, const Command& cmd ) {
-	if (  cmd.params.empty()  ) {
-		sendError(c, 461, "JOIN :Not enough parameters");
-		return;
-	}
-	const std::string& name = cmd.params[0];
-	if (_channels.contains(name)) {
-		Channel& ch = _channels.at(name);
-		if (ch.onlyfans && !ch.invites.contains(c.fd())) {
-			sendError(c, 489, "JOIN :Invite only peasant");
-			return;
-		}
-		else
-			ch.members.insert(c.fd());
-	}
-	else {
-		auto [it, created] = _channels.try_emplace(name, name); // calls Channel(name)
-		Channel& ch = it->second;
-		if (created) {
-			ch.members.insert(c.fd());
-			ch.ops.insert(c.fd());
-		}
-	}
-	Channel& ch = _channels.at(name);
-	std::string s = pr(c) + "JOIN " + ch.name + "\r\n";
-	c.queue(s);
-	s = pref + "332 " + c.nick() + " " + ch.name + " :Welcome to " + ch.name + "\r\n";
-	c.queue(s);
-	s = pref + "353 " + c.nick() + " = " + ch.name + " :";
-	for (auto& fd : ch.members) {
-		auto it = _clients_by_fd.find(fd);
-		if (it == _clients_by_fd.end() || it->second == nullptr)
-			continue;
-		Client* c = it->second;
-		if (ch.ops.contains(c->fd()))
-			s += "@";
-		s += c->nick() + " ";
-	}
-	s += "\r\n";
-	c.queue(s);
-	s = pref + "366 " + c.nick() + " " + ch.name + " End of /NAMES list\r\n";
-	c.queue(s);
-}
-
-void Server::cmdTOPIC( Client& c, const Command& cmd ) {
-	if (!_channels.contains(cmd.params[0])) {
-		sendError(c, 401, "TOPIC :No such channel");
-		return;
-	}
-	Channel& ch = _channels.at(cmd.params[0]);
-	if (cmd.params.size() == 1) {
-
-		if (ch.topic.empty()) {
-			c.queue(pref + "331" + c.nick() + ch.name + ":No topic set\r\n");
-			return;
-		}
-		else {
-			c.queue(pref + "332 " + c.nick() + " " + ch.name + " " + ch.topic + "\r\n");
-			return;	
-		}
-	}
-}
-
-void Server::broadcast(Channel& ch, std::string msg, const Client* client) {
-	for (auto it = ch.members.begin(); it != ch.members.end(); ) {
-		Client* cl = getClientByFd(*it);
-		if (!cl) {
-			it = ch.members.erase(it); // CLEAN DEAD FD
-			continue;
-		}
-		if (client && cl->fd() == client->fd()) {
-			++it;
-			continue;
-		}
-		cl->queue(msg);
-		++it;
-	}
-}
-
-
-// void Server::cmdKICK( Client& c, const Command& cmd ) {
-
-
-// }
-
-
-// ---------------------------------------------------------------- command NICK
-
-static bool isValidNick(const std::string &nick){
-	if (nick.empty()) return false;
-	if (nick[0] == '#' || nick[0] == ':')return false;
-	for (size_t i = 0; i < nick.size(); ++i){
-		if (nick[i] == ' ' || nick[i] == '\r' || nick[i] == '\n')
-			return false;
-	}
-	return true;
-}
-
-void Server::cmdNICK(Client& client, const Command& cmd){
-	if (cmd.params.empty()){
-		sendError(client, 431, ":No nickname given");
-		return ;
-	}
-
-	const std::string& newNick = cmd.params[0];
-	if (  newNick.empty())  {
-		sendError(client, 431, ":No nickname given");
-		return ;
-	}
-
-	// is the nick valid?
-	if (!isValidNick(newNick)){
-		sendError(client, 432, newNick + " :Erroneous nickname");
-		return ;
-	}
-
-	//if nick is already the same
-	if (client.nick() == newNick)
-		return ;
-
-	// Nick in use by someone else?
-	ClientsMapNick::iterator it = _clients_by_nick.find(newNick);
-	if (it != _clients_by_nick.end() && it->second != &client){
-		sendError(client, 433, newNick + " :Nickname is already in use");
-		return ;
-	}
-
-	// Remove old nick mapping if present
-	if (!client.nick().empty())  {
-		ClientsMapNick::iterator old = _clients_by_nick.find(client.nick()  );
-		if (  old != _clients_by_nick.end() && old->second == &client){
-			_clients_by_nick.erase(old);
-		}
-	}
-
-	client.setNick(  newNick );
-	_clients_by_nick[newNick] = &client;
-
-}
-
-// ---------------------------------------------------------------- command USER
-void  Server::cmdUSER( Client& client, const Command& cmd){
-	if (cmd.params.empty()){
-		sendError(client, 461, "USER :Not enough parameters");
-		return ;
-	}
-	if (client.isRegistered()){
-		sendError(client, 462, ":You may not register");
-		return ;
-	}
-
-	client.setUser(cmd.params[0]);
-	client.tryCompleteRegistration();
-}
-
-// ------------------------------------------------------------- command PRIVMSG
-void	Server::cmdPRIVMSG( Client& sender, const Command& cmd){
-	// in this case client == sender
-	if (cmd.params.empty()){
-		sendError(sender, 411, ":No recipent given (PRIVMSG)");
-		return;
-	}
-	if	(cmd.params.size() < 2 || cmd.params[1].empty()){
-		sendError(sender, 412, ":No text to send");
-		return;
-	}
-	const std::string& target = cmd.params[0];
-	const std::string& text	= cmd.params[1];
-
-	//build the prefix part once
-	const std::string prefix = ":" + sender.nick() + "!" + sender.user() + "@ircserv ";
-
-	//channel message
-	if (!target.empty() && target[0] == '#'){
-		Channel* ch = getChannel(target);
-		if (!ch){
-			sendError(sender, 403, target + " :No such channel");
-			return;
-		}
-
-		if (!_channels.contains(target)) {
-			sendError(sender, 403, target + " :No such channel");
-			return;
-		}
-
-		const std::string prefix = ":" + sender.nick() + "!" + sender.user() + "@ircserv ";
-		const std::string out = prefix + "PRIVMSG " + target + " :" + text + "\r\n";
-		broadcast(*ch, out, &sender);
-		return;
-	}
-
-	// // Direct message (nick)
-	Client *dst = getClientByNick(target);
-	if (!dst){
-		sendError(sender, 401, target + " :No such nick/channel");
-		return ;
-	}
-
-	const std::string out = prefix + "PRIVMSG " + target + " :" + text + "\r\n";
-	dst->queue(out);
-
-	// //TEMP FOR DEBUGGING
-	// std::cerr << "PRIVMSG target=[" << target << "] map_size=" << _clients_by_nick.size() << "\n";
-}
-
-void Server::cmdMODE(Client& c, const Command& cmd) {
-	if (cmd.params.empty()) {
-		sendError(c, 461, "MODE :Not enough parameters");
-		return;
-	}
-
-	const std::string& target = cmd.params[0];
-
-	// MODE <nick>
-	if (target == c.nick()) {
-		// Query or set own modes → just say "+i"
-		sendNumeric(c, 221, "+i");
-		return;
-	}
-
-	// MODE #channel
-	if (!target.empty() && target[0] == '#') {
-		return;
-	}
-
-	sendError(c, 502, ":Cannot change mode for other users");
-}
-
-
-
-//TODO------------currently not used anywhere
-
-// Optionally queue something back (usually not necessary)
-// c.queue("ERROR :Closing Link"); // optional
-
-// Mark client for disconnection.
-// We cannot safely erase from poll_fds inside cmdQUIT without having access to poll_fds.
-// So we use a simple approach: close the fd here; the loop will notice and remove it.
-//close(c.fd());
-
-// ------------------------------------------------------------ connection helpers
-void  Server::disconnectClient(int fd, std::vector<pollfd>& poll_fds, size_t& i){
-	ClientsMapFd::iterator it = _clients_by_fd.find(fd);
-	std::cout << "Client disconnected fd="
-						<< fd << "\n";
-
-	if (it == _clients_by_fd.end()){
-		// fd not found; still remove poll entry if you want, but usually shouldn't happen
-		poll_fds.erase(poll_fds.begin() + i );
-		--i;
-		return;
-	}
-
-	Client* client = it->second;
-
-	// remove nick mapping if present
-	if (!client->nick().empty()){
-		ClientsMapNick::iterator nit = _clients_by_nick.find(client->nick());
-		if (nit != _clients_by_nick.end() && nit->second == client)
-			_clients_by_nick.erase(nit);
-	}
-
-	const char* msg = "ERROR :Closing Link\r\n";
-	send(fd, msg, strlen(msg), MSG_NOSIGNAL);
-	shutdown(fd, SHUT_RDWR);
-	// (Later) remove from channels, broadcast QUIT, etc.
-
-	close(fd);
-	delete client;
-	_clients_by_fd.erase(it);
-
-	//remove from poll list
-	poll_fds.erase(poll_fds.begin() + i);
-	--i;
-}
-
-// -------------------------------------- INIT ----------------------------------
+// ------------------------------------------------------------------------ init
 Server::Server(int port, const std::string& password)
 										: _port(port),
 										  _password(password),
 										  _listen_socket_fd(-1) {}
 
-// ----------------------------- DESTRUCTOR ------------------------------
 Server::~Server(){
 	for (ClientsMapFd::iterator it = _clients_by_fd.begin();
 		it != _clients_by_fd.end(); ++it) {
 				close(it->first);
 				delete it->second;
 	}
-	close(_listen_socket_fd);
+	if (_listen_socket_fd >= 0)
+		close(_listen_socket_fd);
 }
 
-// ------------------------------------- GETTERS --------------------------------
+// --------------------------------------------------------------------- getters
 Client*	Server::getClientByFd(	int	fd	){
 	ClientsMapFd::iterator it = _clients_by_fd.find(fd);
 	if (it == _clients_by_fd.end())
@@ -350,40 +38,7 @@ Channel* Server::getChannel(const std::string& name){
 	return &it->second;
 }
 
-Channel& Server::getOrCreateChannel(const std::string& name){
-	ChannelMap::iterator it = _channels.find(name);
-	if (it != _channels.end())
-		return (it->second);
-
-	Channel	ch(name);
-	_channels.insert({name, ch});
-	it = _channels.find(name);
-	return it->second;
-}
-
-
-// -------------------------- SERVER LOGIC -------------------------
-bool	Server::refreshPollEvents(std::vector<pollfd>& poll_fds){
-	bool any_pending = false;
-
-	for (size_t j = 1; j < poll_fds.size(); ++j){
-		ClientsMapFd::iterator it = _clients_by_fd.find(poll_fds[j].fd);
-		if (it == _clients_by_fd.end())
-			continue;
-
-		Client* c = it->second;
-		if (c->hasPendingOutput()){
-			poll_fds[j].events = POLLIN | POLLOUT;
-			any_pending = true;
-		}
-		else	{
-			poll_fds[j].events = POLLIN;
-		}
-	}
-	return any_pending;;
-}
-
-
+// ----------------------------------------------------------------- server logic
 void Server::run(){
 	/* Create listening socket */
 	_listen_socket_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -429,7 +84,6 @@ void Server::run(){
 			2. events <= what you care about
 			3. revents <= what happened (filled by poll())
 	   We put the listening socket at index 0, watching POLLIN */
-	std::vector<pollfd> poll_fds;
 	poll_fds.push_back(pollfd{_listen_socket_fd, POLLIN, 0});
 
 	std::cout << "Server listening on port "
@@ -516,7 +170,16 @@ void Server::run(){
 						break;
 					throw std::runtime_error("listening socket failed in main loop");
 				}
-				disconnectClient(poll_fd.fd, poll_fds, i);
+				// TEMP DEBUG REVENTS
+				std::cerr
+						<< "Disconnecting fd=" 
+						<< poll_fd.fd
+						<< " due to revents=" 
+						<< poll_fd.revents 
+						<< "\n";
+
+				disconnectClient(poll_fd.fd, poll_fds);
+				--i;
 				continue;
 			}
 
@@ -537,11 +200,17 @@ void Server::run(){
 
 				if  ( n == 0  ) {
 					// peer closed connection
-					disconnectClient(poll_fd.fd, poll_fds, i);
+					disconnectClient(poll_fd.fd, poll_fds);
+					--i;
 					continue;
 				}
 
 				if (n < 0){
+					// TEMP DEBUG RECV
+					std::cerr 
+							<< "Disconnecting fd=" 
+							<< poll_fd.fd 
+							<< " because recv==0\n";
 					// non-blocking "no data right now" is NOT a disconnect
 					//if (errno != EAGAIN && errno != EWOULDBLOCK){} // ERRNO IS FORBIDDEN IN THIS PROJECT
 					// disconnectClient(poll_fd.fd, poll_fds, i);
@@ -559,7 +228,8 @@ void Server::run(){
 				//4.  This is how you handle partial receives correctly.
 
 				client->inbuf().append( buf, n );
-				std::cout << "Raw from irssi: " << client->_in << "\n";
+				//TEMP DEBUG
+				//std::cout << "Raw from irssi: " << client->_in << "\n";
 
 				std::string line;
 				while ( client->popLine(  line  ) ) {
@@ -580,7 +250,8 @@ void Server::run(){
 			}
 			// -------------------------------- QUIT CLIENT --------------------------------
 			if (should_disconnect){
-				disconnectClient(poll_fd.fd, poll_fds, i);
+				disconnectClient(poll_fd.fd, poll_fds);
+				--i;
 				continue;
 			}
 			// ----------------------------------- WRITE -----------------------------------
@@ -603,7 +274,7 @@ void Server::run(){
 				else if (sent < 0){
 				// If it's not a "try again later", treat as disconnect
 				//if (errno != EAGAIN && errno != EWOULDBLOCK){} // ERNNO IS FORBIDDEN
-					disconnectClient(poll_fd.fd, poll_fds, i);
+					//disconnectClient(poll_fd.fd, poll_fds, i);//this might be causing the premature kick when using invite
 					continue;
 				}
 			}
@@ -623,131 +294,4 @@ void Server::run(){
 			}
 		}
 	}
-}
-
-// ------------------------------------------------------------- routing helpers
-
-//static  std::string itos(int n){
-//  return std::to_string(n);
-//}
-
-static std::string pad3(int code){
-	std::string s = std::to_string(code);
-	while (s.size() < 3)
-		s = "0" + s;
-	return s;
-}
-
-void Server::sendNumeric(  Client& client, int code, const std::string& text){
-	std::string nick = client.nick().empty() ? "*" : client.nick();
-	client.queue(":ircserv " + pad3(code) + " " + nick + " " + text);
-}
-
-void Server::sendError( Client& client, int code, const std::string& text  ){
-	sendNumeric(client, code, text);
-}
-
-// ------------------------------------------------------------- command handler
-void Server::handleCommand( Client& client, const Command& cmd ){
-
-	// ------------------------------------------------------------ for registration
-	if (  cmd.name == "PING"  ){
-		// token is usually in params[0]
-		if ( !cmd.params.empty())
-			client.queue("PONG :" + cmd.params[0]  );
-		else
-			client.queue("PONG"); //fall_back
-		return;
-	}
-
-	//if (  cmd.name == "CAP" && !client.isWelcomed()){
-	if (  cmd.name == "CAP"){
-		return;
-		}
-
-	//if (  cmd.name == "PASS" && !client.isWelcomed()){
-	if (  cmd.name == "PASS"){
-		cmdPASS       (client, cmd  );
-		return;
-	}
-
-	//if (  cmd.name == "NICK" && !client.isWelcomed()){
-	if (  cmd.name == "NICK"){
-		cmdNICK       ( client, cmd );
-		return;
-	}
-
-	//if (  cmd.name == "USER" && !client.isWelcomed()){
-	if (  cmd.name == "USER"){
-		cmdUSER       ( client, cmd );
-		if (client.isRegistered() && !client.isWelcomed()){
-			maybeWelcome  ( client      );
-			client.setWelcomed();
-		}
-		return;
-	}
-
-	// Before registration, ignore other commands (or reply 451 later)
-	if (!client.isRegistered()){
-		sendError(client, 451, ":You have not registered");
-		return;
-	}
-	if ( cmd.name == "JOIN") {
-		cmdJOIN ( client, cmd );
-		std::cout << "JOIN called.. \n";
-		return;
-	}
-
-	if (cmd.name == "MODE") {
-		cmdMODE(client, cmd);
-		return;
-	}
-
-	// if ( cmd.name == "KICK" ) {
-	// 	cmdKICK( Client& c, const Command& cmd );
-	// 	return;
-	// }
-	// else{
-	// 	sendError(client, 421, cmd.name + " :Unknown command");
-	// 	return;
-	// }
-
-	// ---------------------------------------------------------- after registration
-	if (cmd.name == "PRIVMSG"){
-		cmdPRIVMSG(client, cmd);
-		return;
-	}
-
-	//IF COMMAND IS INVALID
-	sendError(client, 421, cmd.name + " :Unknown command");
-	// Later: JOIN, PRIVMSG, etc.
-
-}
-
-// --------------------------------------------------------- registration helpers
-void  Server::maybeWelcome(Client& client){
-	std::string prefix = ":ircserv ";
-
-		client.queue(prefix + "001 " + client.nick() +
-				" :Welcome to the Internet Relay Network " +
-				client.nick() + "!" + client.user() + "@localhost");
-
-		client.queue(prefix + "002 " + client.nick() +
-				" :Your host is localhost, running version 1.0");
-
-		client.queue(prefix + "003 " + client.nick() +
-				" :This server was created today");
-
-		client.queue(prefix + "004 " + client.nick() +
-				" localhost 127.0.0.1");
-
-		// MOTD start
-		client.queue(prefix + "375 " + client.nick() +
-				" :- Message of the Day -");
-
-		client.queue(prefix + "372 " + client.nick() +
-				" :- Welcome to my IRC server!");
-
-		client.queue(prefix + "376 " + client.nick() +
-				" :End of /MOTD command");
 }

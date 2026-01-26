@@ -19,45 +19,16 @@
 class Channel {
 public:
 	std::string name;
-	std::string topic = "";
+	std::string topic	= "";
+	std::string key		= "";
+	int limit		= 0;
 	std::unordered_set<int> invites;
 	std::unordered_set<int> ops;
 	std::unordered_set<int> members;
 
-	bool onlyfans = false;
+	bool invite_only	= false;
+	bool topic_operator	= false;
 
-	int checkPass(std::string pw);
-	int setPass(std::string pw);
-    explicit Channel(const std::string& n) : name(n), topic("") {}
-    Channel() : topic("") {} // IMPORTANT: needed for try_emplace/emplace sometimes
-    // ~Channel();
-private:
-	std::string _pass = "";
-	// void Channel::opCmds(Server& s, int fd, std::string& cmd, std::string arg);
+	explicit  Channel( const std::string& n ) : name(n), topic(""), key("") {}
+	Channel() : topic("") {} // IMPORTANT: needed for try_emplace/emplace sometimes
 };
-
-
-
-// class Channel
-// {
-// 	public:
-// 		explicit Channel( const std::string& name );
-
-// 		const std::string& name() const;
-
-// 		bool  hasMember(  const Client* c ) const;
-// 		void  addMember(        Client* c );
-// 		void  removeMember(     Client* c );
-
-// 		bool  isOperator( const Client* c ) const;
-// 		void  addOperator(      Client* c );
-// 		void  removeOperator(   Client* c );
-
-// 		void  broadcast(const std::string& msg, const Client* except = 0); // "except = sender" if set to default(0) will send to everyone
-
-// 	private:
-// 		std::string                   _name;
-// 		std::unordered_set<Client*>   _members;
-// 		std::unordered_set<Client*>   _operators;
-// };
-
