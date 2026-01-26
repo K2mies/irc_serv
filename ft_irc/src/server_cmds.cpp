@@ -366,7 +366,16 @@ void	Server::cmdPRIVMSG( Client& sender, const Command& cmd){
 		return;
 	}
 	const std::string& target	= cmd.params[0];
-	const std::string& text		= cmd.params[1];
+	//const std::string& text		= cmd.params[1];
+  std::string text = "";
+
+  // adding space bfore text params if there are many (mostly for nc handling)
+  for (size_t i = 1; i < cmd.params.size(); i++){
+    if (i == 1)
+      text += cmd.params[i];
+    else
+      text += " " + cmd.params[i];
+  }
 
 	//build the prefix part once
 	const std::string prefix = ":" + sender.nick() + "!" + sender.user() + "@ircserv ";
