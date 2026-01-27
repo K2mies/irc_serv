@@ -29,14 +29,14 @@ void Server::cmdKICK(Client& client, const Command& cmd) {
 	}
 	
 	std::string comment = "";
-	if (cmd.params.size() >= 3)
+	if (cmd.params.size() >= 3 && cmd.params[2].size() > 1)
 		comment = " using [" + cmd.params[2] + "] as the reason (comment)";
 
 	std::string msg = prefix(client) + "KICK " + chan.name + " " + cmd.params[1] \
 									 + ":" + client.nick() + " to remove " \
 									 + cmd.params[1] + " from channel" + comment + "\r\n";
 	(void)send(fd, msg.c_str(), msg.size(), MSG_NOSIGNAL);
-	broadcast(chan, msg, nullptr);
+	broadcast(chan, msg, &(*target));
 	if (chan.ops.contains(fd))
 		chan.ops.erase(fd);
 	if (chan.invites.contains(fd))
