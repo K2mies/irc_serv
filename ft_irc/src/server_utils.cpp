@@ -54,7 +54,6 @@ void Server::handleCommand( Client& client, const Command& cmd ){
 
 	if ( cmd.name == "JOIN") {
 		cmdJOIN ( client, cmd );
-		std::cout << "JOIN called.. \n";
 		return;
 	}
 
@@ -159,10 +158,6 @@ static std::string pad3(int code){
 void Server::sendNumeric(  Client& client, int code, const std::string& text){
 	std::string nick = client.nick().empty() ? "*" : client.nick();
 	
-	//TEMP DEBUG FOR NUMERIC
-	std::string line = ":ircserv " + pad3(code) + " " + nick + " " + text;
-	std::cerr << "SENT LINE: [" << line << "]\n";
-
 	client.queue(":ircserv " + pad3(code) + " " + nick + " " + text);
 }
 

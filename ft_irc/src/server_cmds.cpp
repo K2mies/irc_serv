@@ -1,5 +1,4 @@
 #include "Server.hpp"
-// #include <stdlib.h>
 
 // --------------------------------------------------------------------- command KICK
 void Server::cmdKICK(Client& client, const Command& cmd) {
@@ -89,12 +88,8 @@ void	Server::cmdINVITE(Client& inviter, const Command& cmd){
 
 	// if invite-only, only ops can invite
 	if (ch->invite_only && !ch->ops.contains(inviter.fd())){
-		//sendError(inviter, 482, chanName + " :You're not a channel operator");
-		//sendError(inviter, 341, "");
 
 		sendError(inviter, 482, chanName + " :You're not a channel operator");
-		// technically the wrong numeric but seems to behaive as expected
-		//sendError(inviter, 482, chanName + " :You're not a channel operator");
 		return ;
 	}
 
@@ -366,16 +361,15 @@ void	Server::cmdPRIVMSG( Client& sender, const Command& cmd){
 		return;
 	}
 	const std::string& target	= cmd.params[0];
-	//const std::string& text		= cmd.params[1];
-  std::string text = "";
+	std::string text = "";
 
-  // adding space bfore text params if there are many (mostly for nc handling)
-  for (size_t i = 1; i < cmd.params.size(); i++){
-    if (i == 1)
-      text += cmd.params[i];
-    else
-      text += " " + cmd.params[i];
-  }
+	// adding space before text params if there are many (mostly for nc handling)
+	for (size_t i = 1; i < cmd.params.size(); i++){
+	if (i == 1)
+		text += cmd.params[i];
+	else
+		text += " " + cmd.params[i];
+	}
 
 	//build the prefix part once
 	const std::string prefix = ":" + sender.nick() + "!" + sender.user() + "@ircserv ";
@@ -413,9 +407,6 @@ void	Server::cmdPRIVMSG( Client& sender, const Command& cmd){
 
 	const std::string out = prefix + "PRIVMSG " + target + " :" + text;
 	destination->queue(out);
-
-	// //TEMP FOR DEBUGGING
-	// std::cerr << "PRIVMSG target=[" << target << "] map_size=" << _clients_by_nick.size() << "\n";
 }
 
 // --------------------------------------------------------------------- command PART

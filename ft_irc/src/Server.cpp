@@ -229,23 +229,16 @@ void Server::run(){
 
 				client->inbuf().append( buf, n );
 				//TEMP DEBUG
-				//std::cout << "Raw from irssi: " << client->_in << "\n";
+				std::cout << "Server recieved: " << client->_in << "\n";
 
 				std::string line;
 				while ( client->popLine(  line  ) ) {
 					Command cmd = parseCommand(line);
-					std::cerr << cmd.name;
-					for (auto x : cmd.params){
-						std::cerr << x << " ";
-					}
-					std::cerr << "\n";
 					if (cmd.name == "QUIT"){
 						should_disconnect = true;
 						break;
 					}
 					handleCommand(*client, cmd);
-					// handleEverything(*this, client, line);
-
 				}
 			}
 			// -------------------------------- QUIT CLIENT --------------------------------
@@ -268,7 +261,7 @@ void Server::run(){
 				ssize_t sent      = send(poll_fd.fd, out.data(), out.size(), 0);
 
 				if (  sent > 0  ) {
-					std::cout << "sent from server output: " << out << std::endl; //TEMP temp call for debugging
+					std::cout << "Server output: " << out << std::endl; //TEMP temp call for debugging
 					out.erase(  0, sent );
 				}
 				else if (sent < 0){
