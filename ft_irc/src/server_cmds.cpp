@@ -417,7 +417,7 @@ void Server::cmdPART(Client& client, const Command& cmd) {
 		return;
 	}
 	if (!_channels.contains(cmd.params[0])) {
-		sendError(client, 403, "PART :no such channel [ " + cmd.params[0] + " ]");
+		sendError(client, 403, "PART :No such channel");
 		return;
 	}
 	Channel& chan = _channels.at(cmd.params[0]);
@@ -429,14 +429,15 @@ void Server::cmdPART(Client& client, const Command& cmd) {
 
 	std::string reason = "";
 	if (cmd.params.size() > 1)
-		reason = " | reason: [ " + cmd.params[1] + " ]";
-	std::string msg = prefix(client) + client.nick() + " has left " + chan.name + reason;
+		reason = " :" + cmd.params[1];
+	std::string msg = prefix(client) + "PART " + chan.name + reason + "\r\n";
 	broadcast(chan, msg, nullptr);
-
+	
 	chan.ops.erase(fd);
 	chan.invites.erase(fd);
 	chan.members.erase(fd);
 	if (chan.members.size() == 0) {
 		_channels.erase(chan.name);
 	}
+	(void)send(client.fd(), msg.c_str(), msg.size(), MSG_NOSIGNAL);
 }
