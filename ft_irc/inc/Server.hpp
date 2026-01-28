@@ -17,6 +17,7 @@
 #include "Signals.hpp"
 
 #include <iostream>
+#include <stdlib.h>
 #include <poll.h>
 #include <unordered_map>
 #include <vector>

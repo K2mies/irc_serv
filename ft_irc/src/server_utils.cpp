@@ -17,32 +17,36 @@ void Server::handleCommand( Client& client, const Command& cmd ){
 		return;
 	}
 
-	if (  cmd.name == "CAP" && !client.isWelcomed()){
+	if (  cmd.name == "CAP"){
 		return;
 		}
 
-	if (  cmd.name == "PASS" && !client.isWelcomed()){
+	if (  cmd.name == "PASS"){
 		authPASS       (client, cmd  );
-		return;
+		if (client.isRegistered())
+			return;
 	}
 
-	if (  cmd.name == "NICK" && !client.isWelcomed()){
+	if (  cmd.name == "NICK"){
 		authNICK       ( client, cmd );
-		return;
+		if (client.isRegistered())
+			return;
 	}
 
-	if (  cmd.name == "USER" && !client.isWelcomed()){
-		authUSER       ( client, cmd );
-		if (client.isRegistered() && !client.isWelcomed()){
-			maybeWelcome  ( client      );
-			client.setWelcomed();
-		}
-		return;
+	if (  cmd.name == "USER"){
+		authUSER       ( client, cmd );	
+		if (client.isRegistered())
+			return;
 	}
 
 	// Before registration, ignore other commands (or reply 451 later)
 	if (!client.isRegistered()){
-		sendError(client, 451, ":You have not registered");
+
+		client.tryCompleteRegistration();
+		if (client.isRegistered()){
+			maybeWelcome(	client	);
+			client.setWelcomed();
+		}
 		return;
 	}
 

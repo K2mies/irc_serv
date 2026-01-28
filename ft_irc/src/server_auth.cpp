@@ -7,7 +7,7 @@ void  Server::authPASS ( Client& client, const Command& cmd ){
 		return;
 	}
 	if (  client.isRegistered()  ) {
-		sendError(client, 462, ":You may not register"  );
+		sendError(client, 462, ":You are already registered"  );
 		return;
 	}
 
@@ -35,6 +35,11 @@ void Server::authNICK(Client& client, const Command& cmd){
 	if (cmd.params.empty()){
 		sendError(client, 431, ":No nickname given");
 		return ;
+	}
+	
+	if (  client.isRegistered()  ) {
+		sendError(client, 462, ":You are already registered"  );
+		return;
 	}
 
 	const std::string& newNick = cmd.params[0];
@@ -74,17 +79,17 @@ void Server::authNICK(Client& client, const Command& cmd){
 
 // --------------------------------------------------------------------- command USER
 void  Server::authUSER( Client& client, const Command& cmd){
-	if (cmd.params.empty()){
+	if (cmd.params.empty() || cmd.params.size() < 4){
 		sendError(client, 461, "USER :Not enough parameters");
 		return ;
 	}
-	if (client.isRegistered()){
-		sendError(client, 462, ":You may not register");
-		return ;
+	
+	if (  client.isRegistered()  ) {
+		sendError(client, 462, ":You are already registered"  );
+		return;
 	}
-
 	client.setUser(cmd.params[0]);
-	client.tryCompleteRegistration();
+	//client.tryCompleteRegistration();
 }
 
 // ------------------------------------------------------------------ Welcome message

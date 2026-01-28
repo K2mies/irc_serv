@@ -17,8 +17,31 @@ volatile sig_atomic_t g_signal = 0;
 int main(int argc, char **argv){
 	if (argc != 3){
 		std::cerr
-							<< "Usage: ./ircserv <port> <password>"
-							<< std::endl;
+					<< "Usage: ./ircserv <port> <password>"
+					<< std::endl;
+		return (1);
+	}
+
+	int port;
+
+	try{
+		port = std::stoi(argv[1]);
+	}catch (std::exception & e) {
+			std::cout << "port error: " << e.what() << ".\n";
+			return (1);
+	}
+
+	if (std::to_string(port) != argv[1]){
+		std::cerr
+					<< "Error: port invalid"
+					<< std::endl;
+		return(1);
+	}
+
+	if (port < 1024 || port > 65535){
+		std::cerr
+					<< "Usage: ./ircserv <port musy be between 1024 and 65535> <password>"
+					<< std::endl;
 		return (1);
 	}
 
