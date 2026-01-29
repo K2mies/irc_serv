@@ -15,6 +15,31 @@
 #include <string>
 #include <vector>
 
+static inline void trimSpacesInPlace(std::string& x) {
+	size_t a = 0;
+	while (a < x.size() && x[a] == ' ') a++;
+	size_t b = x.size();
+	while (b > a && x[b - 1] == ' ') b--;
+	x = x.substr(a, b - a);
+}
+
+static void pushCommaSplitParams(std::vector<std::string>& out, const std::string& token) {
+	size_t start = 0;
+	while (start <= token.size()) {
+		size_t comma = token.find(',', start);
+		std::string part = (comma == std::string::npos)
+			? token.substr(start)
+			: token.substr(start, comma - start);
+
+		trimSpacesInPlace(part);
+		if (!part.empty())
+			out.push_back(part);
+
+		if (comma == std::string::npos) break;
+		start = comma + 1;
+	}
+}
+
 static std::string  toUpper( std::string s ){
 	for ( size_t i = 0; i < s.size(); i++ )
 		s[i] = static_cast<char>( std::toupper(static_cast<unsigned char>( s[i] )));
@@ -54,7 +79,7 @@ Command  parseCommand( const std::string &line ){
 					cmd.name = toUpper(s.substr(i));
 					return ( cmd );
 	}
-	cmd.name = toUpper(s.substr(i, end - i ) );
+	cmd.name = toUpper(s.substr(i, end - i ));
 	i = end + 1;
 
 	// ---------------------------------------------------------------------- params
@@ -71,13 +96,16 @@ Command  parseCommand( const std::string &line ){
 
 		size_t  next =  s.find(' ', i);
 		if (    next == std::string::npos){
-						cmd.params.push_back(s.substr(i));
-						break;
+					std::string token = s.substr(i);
+					pushCommaSplitParams(cmd.params, token);
+					//cmd.params.push_back(s.substr(i));
+					break;
 		}
 
-		cmd.params.push_back(s.substr(i, next - i));
+		//cmd.params.push_back(s.substr(i, next - i));
+		std::string token = s.substr(i, next - i);
+		pushCommaSplitParams(cmd.params, token);
 		i = next + 1;
 	}
-
 	return ( cmd );
 }

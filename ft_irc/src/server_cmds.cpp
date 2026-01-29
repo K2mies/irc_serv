@@ -1,4 +1,5 @@
 #include "Server.hpp"
+#include <vector>
 
 // --------------------------------------------------------------------- command KICK
 void Server::cmdKICK(Client& client, const Command& cmd) {
@@ -291,62 +292,64 @@ void Server::cmdJOIN(Client& client, const Command& cmd){
 		return;
 	}
 
-	const std::string& name = cmd.params[0];
-	Channel* ch;
-
-	if (_channels.contains(name))
-		ch = &_channels.at(name);
-	else{
-		auto [it, created] = _channels.try_emplace(name, name);
-		ch = &it->second;
-		ch->ops.insert(client.fd());
-	}
-
-	if (ch->invite_only && !ch->invites.contains(client.fd()) &&
-		!ch->ops.contains(client.fd())){
-		sendError(client, 473, name + " :Cannot join channel (+i)");
-		return;
-	}
-
-	if (ch->limit && ch->members.size() >= (size_t)ch->limit){
-		sendError(client, 471, name + " :Cannot join channel (+l)");
-		return;
-	}
-
-	if (!ch->key.empty()){
-		if (cmd.params[1] != ch->key){
-			sendError(client, 475, name + " :Cannot join channel (+k)");
+	for (auto &param : cmd.params){
+		const std::string& name = param;
+		Channel* ch;
+	
+		if (_channels.contains(name))
+			ch = &_channels.at(name);
+		else{
+			auto [it, created] = _channels.try_emplace(name, name);
+			ch = &it->second;
+			ch->ops.insert(client.fd());
+		}
+	
+		if (ch->invite_only && !ch->invites.contains(client.fd()) &&
+			!ch->ops.contains(client.fd())){
+			sendError(client, 473, name + " :Cannot join channel (+i)");
 			return;
 		}
-		if (cmd.params.size() < 2){
-			sendError(client, 461, "JOIN :Not enough parameters");
+	
+		if (ch->limit && ch->members.size() >= (size_t)ch->limit){
+			sendError(client, 471, name + " :Cannot join channel (+l)");
 			return;
 		}
+	
+		if (!ch->key.empty()){
+			if (cmd.params[1] != ch->key){
+				sendError(client, 475, name + " :Cannot join channel (+k)");
+				return;
+			}
+			if (cmd.params.size() < 2){
+				sendError(client, 461, "JOIN :Not enough parameters");
+				return;
+			}
+		}
+	
+		ch->members.insert(client.fd());
+		ch->invites.erase(client.fd());
+	
+		/* JOIN broadcast */
+		broadcast(*ch, prefix(client) + "JOIN " + name, nullptr);
+	
+		/* Topic */
+		if (ch->topic.empty())
+			client.queue(pref + "331 " + client.nick() + " " + name + " :No topic is set");
+		else
+			client.queue(pref + "332 " + client.nick() + " " + name + " :" + ch->topic);
+	
+		/* NAMES */
+		std::string names = pref + "353 " + client.nick() + " = " + name + " :";
+		for (int fd : ch->members){
+			Client* c = getClientByFd(fd);
+			if (!c) continue;
+			if (ch->ops.contains(fd))
+				names += "@";
+			names += c->nick() + " ";
+		}
+		client.queue(names);
+		client.queue(pref + "366 " + client.nick() + " " + name + " :End of /NAMES list");
 	}
-
-	ch->members.insert(client.fd());
-	ch->invites.erase(client.fd());
-
-	/* JOIN broadcast */
-	broadcast(*ch, prefix(client) + "JOIN " + name, nullptr);
-
-	/* Topic */
-	if (ch->topic.empty())
-		client.queue(pref + "331 " + client.nick() + " " + name + " :No topic is set");
-	else
-		client.queue(pref + "332 " + client.nick() + " " + name + " :" + ch->topic);
-
-	/* NAMES */
-	std::string names = pref + "353 " + client.nick() + " = " + name + " :";
-	for (int fd : ch->members){
-		Client* c = getClientByFd(fd);
-		if (!c) continue;
-		if (ch->ops.contains(fd))
-			names += "@";
-		names += c->nick() + " ";
-	}
-	client.queue(names);
-	client.queue(pref + "366 " + client.nick() + " " + name + " :End of /NAMES list");
 }
 
 // ------------------------------------------------------------------ command PRIVMSG
@@ -360,53 +363,59 @@ void	Server::cmdPRIVMSG( Client& sender, const Command& cmd){
 		sendError(sender, 412, ":No text to send");
 		return;
 	}
-	const std::string& target	= cmd.params[0];
-	std::string text = "";
-
-	// adding space before text params if there are many (mostly for nc handling)
-	for (size_t i = 1; i < cmd.params.size(); i++){
-	if (i == 1)
-		text += cmd.params[i];
-	else
-		text += " " + cmd.params[i];
-	}
-
-	//build the prefix part once
-	const std::string prefix = ":" + sender.nick() + "!" + sender.user() + "@ircserv ";
-
-	//channel message
-	if (!target.empty() && target[0] == '#'){
-		Channel* ch = getChannel(target);
-		if (!ch){
-			sendError(sender, 403, target + " :No such channel");
+	//for (auto &param : cmd.params){
+	//for( auto it = cmd.params.begin(); it < cmd.params.end(); it++){
+	for (size_t i = 0; i < cmd.params.size() - 1; i++){
+		//if (cmd.params[it] == cmd.params.end())
+		//	break
+		const std::string& target	= cmd.params[i];
+		std::string text			= "";
+	
+		// adding space before text params if there are many (mostly for nc handling)
+		for (size_t j = 1; j < cmd.params.size(); j++){
+		if (j == 1)
+			text += cmd.params[j];
+		else
+			text += " " + cmd.params[j];
+		}
+	
+		//build the prefix part once
+		const std::string prefix = ":" + sender.nick() + "!" + sender.user() + "@ircserv ";
+	
+		//channel message
+		if (!target.empty() && target[0] == '#'){
+			Channel* ch = getChannel(target);
+			if (!ch){
+				sendError(sender, 403, target + " :No such channel");
+				return;
+			}
+	
+			if (!_channels.contains(target)) {
+				sendError(sender, 403, target + " :No such channel");
+				return;
+			}
+	
+			if (!ch->members.contains(sender.fd())) {
+				sendError(sender, 442, "You're not on that channel");
+				return;
+			}
+	
+			const std::string prefix	= ":" + sender.nick() + "!" + sender.user() + "@ircserv ";
+			const std::string out		= prefix + "PRIVMSG " + target + " :" + text;
+			broadcast(*ch, out, &sender);
 			return;
 		}
-
-		if (!_channels.contains(target)) {
-			sendError(sender, 403, target + " :No such channel");
-			return;
+	
+		// // Direct message (nick)
+		Client *destination = getClientByNick(target);
+		if (!destination){
+			sendError(sender, 401, target + " :No such nick/channel");
+			return ;
 		}
-
-		if (!ch->members.contains(sender.fd())) {
-			sendError(sender, 442, "You're not on that channel");
-			return;
-		}
-
-		const std::string prefix	= ":" + sender.nick() + "!" + sender.user() + "@ircserv ";
-		const std::string out		= prefix + "PRIVMSG " + target + " :" + text;
-		broadcast(*ch, out, &sender);
-		return;
+	
+		const std::string out = prefix + "PRIVMSG " + target + " :" + text;
+		destination->queue(out);
 	}
-
-	// // Direct message (nick)
-	Client *destination = getClientByNick(target);
-	if (!destination){
-		sendError(sender, 401, target + " :No such nick/channel");
-		return ;
-	}
-
-	const std::string out = prefix + "PRIVMSG " + target + " :" + text;
-	destination->queue(out);
 }
 
 // --------------------------------------------------------------------- command PART
