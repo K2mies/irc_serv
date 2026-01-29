@@ -42,7 +42,7 @@ void Server::authNICK(Client& client, const Command& cmd){
 	if (cmd.params.empty() && client.isRegistered()){
 		std::string msg = ":" + client.nick() + " NICK :" + client.nick() + "\r\n";
 		(void)send(client.fd(), msg.c_str(), msg.size(), MSG_NOSIGNAL);
-		std::cerr << "Server output: " << msg;
+		std::cerr << "Server output: " << msg << "\n";
 		return ;
 	}
 
@@ -81,23 +81,24 @@ void Server::authNICK(Client& client, const Command& cmd){
 	std::string msg = ":" + client.nick() + " NICK :" + newNick + "\r\n";
 	client.setNick(  newNick );
 	_clients_by_nick[newNick] = &client;
-	if (nick_changed)
+	if (nick_changed) {
 		(void)send(client.fd(), msg.c_str(), msg.size(), MSG_NOSIGNAL);
+		std::cerr << "Server output: " << msg << "\n";
+	}
 }
 
 // --------------------------------------------------------------------- command USER
 void  Server::authUSER( Client& client, const Command& cmd){
+	if (  client.isRegistered()  ) {
+		sendError(client, 462, ":You are already registered"  );
+		return;
+	}
 	if (cmd.params.empty() || cmd.params.size() < 4){
 		sendError(client, 461, "USER :Not enough parameters");
 		return ;
 	}
 	
-	if (  client.isRegistered()  ) {
-		sendError(client, 462, ":You are already registered"  );
-		return;
-	}
 	client.setUser(cmd.params[0]);
-	//client.tryCompleteRegistration();
 }
 
 // ------------------------------------------------------------------ Welcome message
