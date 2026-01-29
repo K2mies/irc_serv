@@ -107,13 +107,5 @@ Command  parseCommand( const std::string &line ){
 		pushCommaSplitParams(cmd.params, token);
 		i = next + 1;
 	}
-
-	std::cout << "NAME: " << cmd.name << std::endl;
-	std::cout << "PARAMS: ";
-	for (auto &param : cmd.params){
-		std::cout << "[" << param << "], ";
-	}
-	std::cout << std::endl;
-
 	return ( cmd );
 }
