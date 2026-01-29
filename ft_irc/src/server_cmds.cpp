@@ -314,12 +314,12 @@ void Server::cmdJOIN(Client& client, const Command& cmd){
 	}
 
 	if (!ch->key.empty()){
-		if (cmd.params.size() < 2){
-			sendError(client, 461, "JOIN :Not enough parameters");
-			return;
-		}
 		if (cmd.params[1] != ch->key){
 			sendError(client, 475, name + " :Cannot join channel (+k)");
+			return;
+		}
+		if (cmd.params.size() < 2){
+			sendError(client, 461, "JOIN :Not enough parameters");
 			return;
 		}
 	}
