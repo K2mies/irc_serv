@@ -27,7 +27,7 @@ int main(int argc, char **argv){
 	try{
 		port = std::stoi(argv[1]);
 	}catch (std::exception & e) {
-			std::cout << "port error: " << e.what() << ".\n";
+			std::cout << "Port error: " << e.what() << ".\n";
 			return (1);
 	}
 

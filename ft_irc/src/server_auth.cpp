@@ -24,6 +24,7 @@ void  Server::authPASS ( Client& client, const Command& cmd ){
 static bool isValidNick(const std::string &nick){
 	if (nick.empty()) return false;
 	if (nick[0] == '#' || nick[0] == ':')return false;
+	if (std::isdigit(nick[0])) return false;
 	for (size_t i = 0; i < nick.size(); ++i){
 		if (nick[i] == ' ' || nick[i] == '\r' || nick[i] == '\n')
 			return false;
@@ -32,14 +33,17 @@ static bool isValidNick(const std::string &nick){
 }
 
 void Server::authNICK(Client& client, const Command& cmd){
-	if (cmd.params.empty()){
+	if (cmd.params.empty() && !client.isRegistered()){
 		sendError(client, 431, ":No nickname given");
 		return ;
 	}
-	
-	if (  client.isRegistered()  ) {
-		sendError(client, 462, ":You are already registered"  );
-		return;
+	bool nick_changed = false;
+
+	if (cmd.params.empty() && client.isRegistered()){
+		std::string msg = ":" + client.nick() + " NICK :" + client.nick() + "\r\n";
+		(void)send(client.fd(), msg.c_str(), msg.size(), MSG_NOSIGNAL);
+		std::cerr << "Server output: " << msg;
+		return ;
 	}
 
 	const std::string& newNick = cmd.params[0];
@@ -50,13 +54,15 @@ void Server::authNICK(Client& client, const Command& cmd){
 
 	// is the nick valid?
 	if (!isValidNick(newNick)){
-		sendError(client, 432, newNick + " :Erroneous nickname");
+		sendError(client, 432, newNick + ":Erroneous nickname");
 		return ;
 	}
 
 	//if nick is already the same
 	if (client.nick() == newNick)
 		return ;
+	else
+		nick_changed = true;
 
 	// Nick in use by someone else?
 	ClientsMapNick::iterator it = _clients_by_nick.find(newNick);
@@ -72,9 +78,11 @@ void Server::authNICK(Client& client, const Command& cmd){
 			_clients_by_nick.erase(old);
 		}
 	}
-
+	std::string msg = ":" + client.nick() + " NICK :" + newNick + "\r\n";
 	client.setNick(  newNick );
 	_clients_by_nick[newNick] = &client;
+	if (nick_changed)
+		(void)send(client.fd(), msg.c_str(), msg.size(), MSG_NOSIGNAL);
 }
 
 // --------------------------------------------------------------------- command USER
