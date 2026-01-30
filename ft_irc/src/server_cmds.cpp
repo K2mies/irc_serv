@@ -363,11 +363,7 @@ void	Server::cmdPRIVMSG( Client& sender, const Command& cmd){
 		sendError(sender, 412, ":No text to send");
 		return;
 	}
-	//for (auto &param : cmd.params){
-	//for( auto it = cmd.params.begin(); it < cmd.params.end(); it++){
 	for (size_t i = 0; i < cmd.params.size() - 1; i++){
-		//if (cmd.params[it] == cmd.params.end())
-		//	break
 		const std::string& target	= cmd.params[i];
 		std::string text			= "";
 	

@@ -102,7 +102,6 @@ Command  parseCommand( const std::string &line ){
 					break;
 		}
 
-		//cmd.params.push_back(s.substr(i, next - i));
 		std::string token = s.substr(i, next - i);
 		pushCommaSplitParams(cmd.params, token);
 		i = next + 1;

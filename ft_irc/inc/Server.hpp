@@ -77,7 +77,7 @@ public:
 	// ---------------------------------------------------------------- getters
 	Client  *getClientByFd      ( int fd );
 	Client  *getClientByNick    ( const std::string &nick );
-	Channel  *getChannel         ( const std::string &name );
+	Channel *getChannel         ( const std::string &name );
 
 	// ----------------------------------------------------------- server logic
 	void run();

@@ -74,23 +74,6 @@ void  Client::tryCompleteRegistration(){
  * 2: If it contains a full IRC line ending in \r\n placee into line
  * 3: Remove that line (and the CRLF) from _in
  * 4: Return true if a line was popped, otherwise false
- * @param line  reference to a line variable
- */
-//bool Client::popLine( std::string& line ) {
-//
-//  // IRC lines end with \r\n
-//  const std::string::size_type pos = _in.find("\r\n");
-//
-//  if (pos == std::string::npos)
-//    return (  false );
-//
-//  line =  _in.substr(0, pos);
-//          _in.erase (0, pos + 2); // remove line + "\r\n"
-//
-//  return (  true  );
-//}
-
-/*
  * @brief more forgiving version of popLine that includes /n
  * preferable used on local jesting
  * @param line  referene to a line variable
