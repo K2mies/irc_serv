@@ -4,8 +4,11 @@ services:
     build: ./requirements/mariadb
     image: mariadb:v1
     env_file: .env
+    secrets:
+      - db_root_password
+      - db_password
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$MYSQL_ROOT_PASSWORD"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$(tr -d '\r\n' < /run/secrets/db_root_password)"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -20,6 +23,9 @@ services:
     build: ./requirements/wordpress
     image: wordpress:v1
     env_file: .env
+    secrets:
+      - db_password
+      - credentials
     networks:
       - inception
     volumes:
@@ -65,3 +71,11 @@ networks:
   inception:
     name: inception
     driver: bridge
+
+secrets:
+  db_root_password:
+    file: ../secrets/db_root_password.txt
+  db_password:
+    file: ../secrets/db_password.txt
+  credentials:
+    file: ../secrets/credentials.txt

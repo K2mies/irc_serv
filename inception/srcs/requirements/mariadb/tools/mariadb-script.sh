@@ -3,6 +3,8 @@ set -e
 
 MYSQL_DATADIR="/var/lib/mysql"
 MYSQL_SOCKET="/run/mysqld/mysqld.sock"
+WORDPRESS_DATABASE_USER_PASSWORD=$(tr -d '\r\n' < /run/secrets/db_password)
+
 
 # Initialize system tables if they don't exist
 if [ ! -d "$MYSQL_DATADIR/mysql" ]; then
